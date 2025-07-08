@@ -136,6 +136,9 @@ class AnalysisController {
     try {
       console.log(`Starting AI analysis for visitor ${visitor.id}`);
       
+      // Record start time for processing time calculation
+      const analysisStartTime = Date.now();
+      
       // Mark as processing
       const markProcessingStmt = db.prepare(`
         UPDATE doorbell_events 
@@ -162,16 +165,20 @@ class AnalysisController {
         cost_tracking_enabled: config?.cost_tracking_enabled
       });
       
-      // Perform AI analysis
+      // Perform AI analysis with timing
       const analysisResults = await provider.detectFaces(visitor.image_url, visitor.id);
+      
+      // Calculate total processing time
+      const totalProcessingTime = Date.now() - analysisStartTime;
       
       console.log(`AI analysis completed for visitor ${visitor.id}:`, {
         faces_detected: analysisResults.faces_detected,
         objects_detected: analysisResults.objects_detected?.length || 0,
-        confidence: analysisResults.scene_analysis?.overall_confidence
+        confidence: analysisResults.scene_analysis?.overall_confidence,
+        processing_time_ms: totalProcessingTime
       });
       
-      // Update visitor with new analysis results
+      // Update visitor with new analysis results including processing time
       const updateStmt = db.prepare(`
         UPDATE doorbell_events SET
           ai_message = ?,
@@ -180,7 +187,8 @@ class AnalysisController {
           ai_objects_detected = ?,
           ai_scene_analysis = ?,
           ai_processing_complete = 1,
-          faces_detected = ?
+          faces_detected = ?,
+          processing_time = ?
         WHERE id = ?
       `);
       
@@ -191,6 +199,7 @@ class AnalysisController {
         JSON.stringify(analysisResults.objects_detected || []),
         JSON.stringify(analysisResults.scene_analysis || {}),
         analysisResults.faces_detected || 0,
+        totalProcessingTime.toString(),
         visitor.id
       );
       
@@ -220,7 +229,8 @@ class AnalysisController {
             faces_detected: analysisResults.faces_detected || 0,
             objects_detected: analysisResults.objects_detected?.length || 0,
             confidence_score: analysisResults.scene_analysis?.overall_confidence,
-            processing_time: Date.now() - new Date(visitor.timestamp).getTime(),
+            processing_time: totalProcessingTime,
+            processing_time_ms: totalProcessingTime,
             cost_usd: analysisResults.cost_usd || 0
           }
         });
