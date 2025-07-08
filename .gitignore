@@ -1,0 +1,9 @@
+
+# Memory Bank Files - Do not commit
+memory_bank/
+.memory_bank/
+*_memory_bank.md
+project_memory.md
+architecture_memory.md
+implementation_memory.md
+development_notes.md
