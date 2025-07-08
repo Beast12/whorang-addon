@@ -49,7 +49,36 @@ The WhoRang AI Doorbell Add-on provides the backend service for the [WhoRang AI 
 
 **Note**: Add-ons are not available for Container/Core installations. Use Docker Compose instead.
 
-1. **Create Docker Compose File**:
+1. **Option A: Docker Run Command**:
+   ```bash
+   # Create data directories
+   mkdir -p whorang-data whorang-ssl
+   
+   # Run WhoRang backend container
+   docker run -d \
+     --name whorang-backend \
+     --restart unless-stopped \
+     -p 3001:3001 \
+     -v $(pwd)/whorang-data:/data \
+     -v $(pwd)/whorang-ssl:/ssl \
+     -e NODE_ENV=production \
+     -e PORT=3001 \
+     -e DATABASE_PATH=/data/whorang.db \
+     -e UPLOADS_PATH=/data/uploads \
+     -e AI_PROVIDER=local \
+     -e LOG_LEVEL=info \
+     -e WEBSOCKET_ENABLED=true \
+     -e CORS_ENABLED=true \
+     ghcr.io/beast12/whorang-backend:latest
+   
+   # Check container status
+   docker ps
+   
+   # View logs
+   docker logs -f whorang-backend
+   ```
+
+2. **Option B: Docker Compose File**:
    ```yaml
    # docker-compose.yml
    version: '3.8'
@@ -80,7 +109,7 @@ The WhoRang AI Doorbell Add-on provides the backend service for the [WhoRang AI 
        external: true
    ```
 
-2. **Start the Service**:
+   **Start the Service**:
    ```bash
    # Create directories
    mkdir -p whorang-data whorang-ssl
