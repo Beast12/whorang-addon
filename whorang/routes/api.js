@@ -11,6 +11,7 @@ const facesRoutes = require('./faces');
 const detectedFacesRoutes = require('./detectedFaces');
 const openaiRoutes = require('./openai');
 const analysisRoutes = require('./analysis');
+const aiRoutes = require('./ai');
 
 // Health check
 router.get('/health', (req, res) => {
@@ -26,5 +27,6 @@ router.use('/faces', facesRoutes);
 router.use('/detected-faces', detectedFacesRoutes);
 router.use('/openai', openaiRoutes);
 router.use('/analysis', analysisRoutes);
+router.use('/ai', aiRoutes);
 
 module.exports = router;
