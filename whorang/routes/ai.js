@@ -226,4 +226,127 @@ router.get('/cost-summary', (req, res) => {
   }
 });
 
+// Get current Ollama configuration
+router.get('/providers/local/config', (req, res) => {
+  try {
+    const db = getDatabase();
+    const configStmt = db.prepare('SELECT * FROM face_recognition_config LIMIT 1');
+    const config = configStmt.get();
+    
+    const ollamaUrl = config?.ollama_url || 'http://localhost:11434';
+    const urlObj = new URL(ollamaUrl);
+    
+    res.json({
+      success: true,
+      host: urlObj.hostname,
+      port: parseInt(urlObj.port) || 11434,
+      ollama_url: ollamaUrl,
+      model: config?.ollama_model || 'llava'
+    });
+    
+  } catch (error) {
+    console.error('Error getting Ollama config:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get Ollama configuration',
+      details: error.message
+    });
+  }
+});
+
+// Set Ollama configuration (the missing endpoint)
+router.post('/providers/local/config', (req, res) => {
+  try {
+    const { host, port } = req.body;
+    
+    if (!host || !port) {
+      return res.status(400).json({
+        success: false,
+        error: 'Host and port are required'
+      });
+    }
+    
+    const db = getDatabase();
+    const ollamaUrl = `http://${host}:${port}`;
+    
+    console.log(`Updating Ollama configuration to: ${ollamaUrl}`);
+    
+    // Update the database with new Ollama configuration
+    const updateStmt = db.prepare(`
+      UPDATE face_recognition_config 
+      SET ollama_url = ?, updated_at = ?
+      WHERE id = 1
+    `);
+    
+    const result = updateStmt.run(ollamaUrl, new Date().toISOString());
+    
+    if (result.changes === 0) {
+      // No existing config, create one
+      const insertStmt = db.prepare(`
+        INSERT INTO face_recognition_config 
+        (ollama_url, ai_provider, updated_at, created_at)
+        VALUES (?, 'local', ?, ?)
+      `);
+      
+      const now = new Date().toISOString();
+      insertStmt.run(ollamaUrl, now, now);
+      console.log(`Created new Ollama configuration: ${ollamaUrl}`);
+    } else {
+      console.log(`Updated existing Ollama configuration: ${ollamaUrl}`);
+    }
+    
+    res.json({
+      success: true,
+      message: 'Ollama configuration updated successfully',
+      ollama_url: ollamaUrl,
+      host: host,
+      port: parseInt(port)
+    });
+    
+  } catch (error) {
+    console.error('Error updating Ollama config:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update Ollama configuration',
+      details: error.message
+    });
+  }
+});
+
+// Test Ollama connection with current config
+router.post('/providers/local/test', async (req, res) => {
+  try {
+    const OllamaController = require('../controllers/ollamaController');
+    
+    // Use the test connection method from OllamaController
+    await OllamaController.testConnection(req, res);
+    
+  } catch (error) {
+    console.error('Error testing Ollama connection:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to test Ollama connection',
+      details: error.message
+    });
+  }
+});
+
+// Get available Ollama models
+router.get('/providers/local/models', async (req, res) => {
+  try {
+    const OllamaController = require('../controllers/ollamaController');
+    
+    // Use the get available models method from OllamaController
+    await OllamaController.getAvailableModels(req, res);
+    
+  } catch (error) {
+    console.error('Error getting Ollama models:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get Ollama models',
+      details: error.message
+    });
+  }
+});
+
 module.exports = router;
