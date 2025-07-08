@@ -17,7 +17,7 @@ env:
   IMAGE_NAME: beast12/whorang-backend
 
 jobs:
-    build-multi-arch:
+  build-multi-arch:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     permissions:
