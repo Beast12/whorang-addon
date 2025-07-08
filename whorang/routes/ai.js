@@ -257,12 +257,28 @@ router.get('/providers/local/config', (req, res) => {
 // Set Ollama configuration (the missing endpoint)
 router.post('/providers/local/config', (req, res) => {
   try {
-    const { host, port } = req.body;
+    // Handle both direct format and Home Assistant nested format
+    let host, port;
+    
+    if (req.body && req.body.ollama) {
+      // Home Assistant format: {"ollama": {"host": "...", "port": ...}}
+      host = req.body.ollama.host;
+      port = req.body.ollama.port;
+    } else if (req.body) {
+      // Direct format: {"host": "...", "port": ...}
+      host = req.body.host;
+      port = req.body.port;
+    }
     
     if (!host || !port) {
       return res.status(400).json({
         success: false,
-        error: 'Host and port are required'
+        error: 'Host and port are required',
+        received_format: req.body,
+        expected_formats: [
+          '{"host": "192.168.86.163", "port": 11434}',
+          '{"ollama": {"host": "192.168.86.163", "port": 11434}}'
+        ]
       });
     }
     
