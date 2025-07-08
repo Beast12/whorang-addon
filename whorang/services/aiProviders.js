@@ -151,9 +151,11 @@ If no faces are detected, set faces_detected to 0 and faces to empty array. Alwa
   }
 
   async processImageUrl(imageUrl) {
-    // If it's already a full HTTP URL, return as-is
+    // For ANY HTTP URL (including private networks like Home Assistant), 
+    // convert to base64 since OpenAI cannot access private network URLs
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      return imageUrl;
+      console.log(`Converting remote URL to base64: ${imageUrl}`);
+      return await this.convertUrlToBase64(imageUrl);
     }
 
     // For local images, we need to convert them to base64 data URLs
@@ -164,6 +166,37 @@ If no faces are detected, set faces_detected to 0 and faces to empty array. Alwa
 
     // If it's a relative path, assume it's local
     return await this.convertImageToDataUrl(imageUrl);
+  }
+
+  async convertUrlToBase64(imageUrl) {
+    try {
+      console.log(`Fetching image from URL: ${imageUrl}`);
+      
+      const response = await fetch(imageUrl, {
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'WhoRang-AI-Analysis/1.0'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const base64Data = buffer.toString('base64');
+      
+      // Determine MIME type from response headers or URL extension
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      
+      console.log(`Successfully converted image to base64: ${buffer.length} bytes`);
+      return `data:${contentType};base64,${base64Data}`;
+      
+    } catch (error) {
+      console.error('Error converting URL to base64:', error);
+      throw new Error(`Failed to process image URL: ${error.message}`);
+    }
   }
 
   async convertImageToDataUrl(imagePath) {

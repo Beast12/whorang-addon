@@ -32,6 +32,12 @@ function parseWeatherData(weatherString) {
   }
 }
 
+// Check if automatic analysis should be triggered
+function shouldAutoAnalyze() {
+  // Check if automatic analysis is enabled (configurable via environment variable)
+  return process.env.AUTO_ANALYSIS_ENABLED !== 'false';
+}
+
 // Webhook handler function
 function handleWebhookEvent(req, res) {
   const { 
@@ -134,6 +140,57 @@ function handleWebhookEvent(req, res) {
     // Queue face processing (non-blocking)
     faceProcessingService.addToProcessingQueue(eventWithId.id, fullImageUrl)
       .catch(error => console.error('Face processing queue error:', error));
+    
+    // **NEW: Trigger automatic AI analysis**
+    if (fullImageUrl && shouldAutoAnalyze()) {
+      console.log('Triggering automatic AI analysis for visitor:', eventWithId.id);
+      
+      // Start analysis in background (don't wait for completion)
+      setImmediate(async () => {
+        try {
+          // Broadcast analysis started
+          broadcast({
+            type: 'analysis_started',
+            data: { 
+              visitor_id: eventWithId.id,
+              image_url: fullImageUrl,
+              timestamp: new Date().toISOString()
+            }
+          });
+          
+          const analysisController = require('../controllers/analysisController');
+          const result = await analysisController.triggerAnalysis(eventWithId.id);
+          
+          console.log('Automatic analysis completed for visitor:', eventWithId.id);
+          
+          // Broadcast analysis complete
+          broadcast({
+            type: 'analysis_complete',
+            data: {
+              visitor_id: eventWithId.id,
+              analysis: result?.analysis || 'Analysis completed',
+              confidence: result?.confidence || 0,
+              faces_detected: result?.faces_detected || 0,
+              provider: result?.provider || 'unknown',
+              timestamp: new Date().toISOString()
+            }
+          });
+          
+        } catch (error) {
+          console.error('Automatic analysis failed for visitor:', eventWithId.id, error);
+          
+          // Broadcast analysis error
+          broadcast({
+            type: 'analysis_error',
+            data: {
+              visitor_id: eventWithId.id,
+              error: error.message,
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+      });
+    }
     
     // Broadcast to WebSocket clients
     broadcast({
