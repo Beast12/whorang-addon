@@ -22,12 +22,15 @@ The WhoRang AI Doorbell Add-on provides the backend service for the [WhoRang AI 
 
 ### Prerequisites
 
-- **Home Assistant OS** or **Home Assistant Supervised**
 - **Minimum 2GB RAM** (4GB recommended for AI processing)
 - **1GB free storage** (for database and image storage)
 - **Internet connection** (for cloud AI providers)
 
-### Add Repository
+### Installation Options by Home Assistant Type
+
+#### 🏠 Home Assistant OS / Supervised (Add-on Installation)
+
+**Best for**: Users running Home Assistant OS or Supervised installations
 
 1. **Add Add-on Repository**:
    - Go to **Settings** → **Add-ons** → **Add-on Store**
@@ -39,6 +42,89 @@ The WhoRang AI Doorbell Add-on provides the backend service for the [WhoRang AI 
    - Find "WhoRang AI Doorbell Backend" in the add-on store
    - Click **Install** (this may take several minutes)
    - Wait for installation to complete
+
+#### 🐳 Home Assistant Container/Core (Docker Deployment)
+
+**Best for**: Users running Home Assistant in Docker or Core installations
+
+**Note**: Add-ons are not available for Container/Core installations. Use Docker Compose instead.
+
+1. **Create Docker Compose File**:
+   ```yaml
+   # docker-compose.yml
+   version: '3.8'
+   services:
+     whorang:
+       image: ghcr.io/beast12/whorang-backend:latest
+       container_name: whorang-backend
+       ports:
+         - "3001:3001"
+       volumes:
+         - ./whorang-data:/data
+         - ./whorang-ssl:/ssl
+       environment:
+         - NODE_ENV=production
+         - PORT=3001
+         - DATABASE_PATH=/data/whorang.db
+         - UPLOADS_PATH=/data/uploads
+         - AI_PROVIDER=local
+         - LOG_LEVEL=info
+         - WEBSOCKET_ENABLED=true
+         - CORS_ENABLED=true
+       restart: unless-stopped
+       networks:
+         - homeassistant
+   
+   networks:
+     homeassistant:
+       external: true
+   ```
+
+2. **Start the Service**:
+   ```bash
+   # Create directories
+   mkdir -p whorang-data whorang-ssl
+   
+   # Start the container
+   docker-compose up -d
+   
+   # Check logs
+   docker-compose logs -f whorang
+   ```
+
+3. **Verify Installation**:
+   ```bash
+   # Test health endpoint
+   curl http://localhost:3001/api/health
+   
+   # Should return: {"status":"healthy","version":"1.0.0"}
+   ```
+
+#### 🔧 Manual Installation (Advanced)
+
+**Best for**: Advanced users who want full control
+
+1. **Clone Repository**:
+   ```bash
+   git clone https://github.com/Beast12/whorang-addon.git
+   cd whorang-addon/whorang
+   ```
+
+2. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment**:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your settings
+   ```
+
+4. **Start Service**:
+   ```bash
+   npm start
+   ```
 
 ### Configuration
 
