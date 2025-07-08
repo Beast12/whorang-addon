@@ -210,7 +210,8 @@ jobs:
           prerelease: false
   cleanup:
     runs-on: ubuntu-latest
-    runs-if: always()
+    needs: security-scan
+    if: always()
     permissions:
       contents: read
       packages: write
