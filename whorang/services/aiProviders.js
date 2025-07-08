@@ -483,8 +483,8 @@ If no faces are detected, set faces_detected to 0 and faces to empty array. Alwa
 class LocalOllamaProvider extends BaseAIProvider {
   constructor(config) {
     super(config);
-    // Ollama is typically free/local, but we track compute costs based on processing time
-    this.computeCostPerSecond = 0.001; // $0.001 per second of processing (configurable)
+    // Ollama is free/local - no real costs should be tracked
+    this.computeCostPerSecond = 0; // $0.00 - local Ollama is free
   }
 
   static makeHttpRequest(url, options = {}) {
@@ -894,7 +894,7 @@ If you see no faces, set faces_detected to 0 and faces to empty array. Always an
         new Date().toISOString()
       );
 
-      console.log(`Tracked Ollama usage: ${tokens.total_tokens} tokens (estimated), $${computeCost.toFixed(4)} compute cost`);
+      console.log(`Tracked Ollama usage: ${tokens.total_tokens} tokens (estimated), free local processing`);
     } catch (error) {
       console.error('Error tracking Ollama usage:', error);
     }
