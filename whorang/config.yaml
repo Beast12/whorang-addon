@@ -1,0 +1,92 @@
+name: "WhoRang AI Doorbell Backend"
+description: "AI-powered doorbell backend with face recognition and multi-provider AI analysis"
+version: "1.0.0"
+slug: "whorang"
+init: false
+arch:
+  - armhf
+  - armv7
+  - aarch64
+  - amd64
+  - i386
+startup: services
+boot: auto
+ports:
+  "3001/tcp": 3001
+ports_description:
+  "3001/tcp": "WhoRang API and WebSocket port"
+webui: "http://[HOST]:[PORT:3001]"
+ingress: true
+ingress_port: 3001
+panel_icon: "mdi:doorbell-video"
+panel_title: "WhoRang Doorbell"
+panel_admin: false
+hassio_api: true
+hassio_role: default
+homeassistant_api: true
+host_network: false
+privileged: []
+full_access: false
+apparmor: true
+audio: false
+video: false
+gpio: false
+usb: false
+uart: false
+kernel_modules: false
+devicetree: false
+docker_api: false
+stdin: false
+legacy: false
+
+options:
+  ssl: false
+  certfile: "fullchain.pem"
+  keyfile: "privkey.pem"
+  ai_provider: "local"
+  log_level: "info"
+  database_path: "/data/whorang.db"
+  uploads_path: "/data/uploads"
+  max_upload_size: "10MB"
+  face_recognition_threshold: 0.6
+  ai_analysis_timeout: 30
+  websocket_enabled: true
+  cors_enabled: true
+  cors_origins: ["*"]
+
+schema:
+  ssl: bool
+  certfile: str
+  keyfile: str
+  ai_provider: list(local|openai|claude|gemini|google-cloud-vision)
+  log_level: list(debug|info|warn|error)
+  database_path: str
+  uploads_path: str
+  max_upload_size: str
+  face_recognition_threshold: float(0.1,1.0)
+  ai_analysis_timeout: int(10,120)
+  websocket_enabled: bool
+  cors_enabled: bool
+  cors_origins: [str]
+
+environment:
+  NODE_ENV: "production"
+  PORT: "3001"
+  DATABASE_PATH: "/data/whorang.db"
+  UPLOADS_PATH: "/data/uploads"
+
+map:
+  - ssl
+  - share:rw
+  - media:rw
+  - backup:rw
+
+backup: hot
+
+image: "ghcr.io/beast12/whorang-addon-{arch}"
+
+url: "https://github.com/Beast12/whorang-addon"
+codenotary: "notary@beast12.dev"
+
+advanced: true
+stage: stable
