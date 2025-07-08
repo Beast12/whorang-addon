@@ -208,38 +208,18 @@ jobs:
             - [Troubleshooting](README.md#troubleshooting)
           draft: false
           prerelease: false
-  cleanup:
+  house-keeping:
     runs-on: ubuntu-latest
-    needs: security-scan
     if: always()
+    needs: security-scan
     permissions:
-      contents: read
       packages: write
-
+      contents: read
     steps:
-      - name: Install GitHub CLI
-        uses: cli/cli-action@v2
-
-      - name: Authenticate GitHub CLI
-        run: echo "${{ secrets.GH_CR_PAT }}" | gh auth login --with-token
-
-      - name: List and delete old Docker tags (keep latest 3)
-        env:
-          GH_REPO: ${{ github.repository }}
-          IMAGE_NAME: whorang-backend
-        run: |
-          echo "Fetching tags for ghcr.io/${{ github.repository }}/$IMAGE_NAME"
-          TAGS=$(gh api -H "Accept: application/vnd.github+json" \
-            "/user/packages/container/${IMAGE_NAME}/versions" \
-            | jq -r '.[].id')
-
-          COUNT=0
-          for ID in $TAGS; do
-            COUNT=$((COUNT+1))
-            if [ $COUNT -le 3 ]; then
-              echo "Skipping tag ID $ID (one of the latest 3)"
-              continue
-            fi
-            echo "Deleting old tag ID $ID"
-            gh api -X DELETE "/user/packages/container/${IMAGE_NAME}/versions/$ID"
-          done
+      - name: Delete old image versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: 'whorang-backend'
+          package-type: 'container'
+          min-versions-to-keep: 5
+          token: ${{ secrets.GITHUB_TOKEN }}
