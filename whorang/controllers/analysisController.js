@@ -78,6 +78,55 @@ class AnalysisController {
   }
   
   /**
+   * Process analysis directly (for programmatic calls)
+   * @param {number} visitor_id - ID of visitor to analyze
+   * @returns {Promise<Object>} Analysis result
+   */
+  static async processAnalysisDirectly(visitor_id) {
+    const db = require('../config/database').getDatabase();
+    
+    try {
+      let targetVisitor;
+      
+      if (visitor_id) {
+        const stmt = db.prepare('SELECT * FROM doorbell_events WHERE id = ?');
+        targetVisitor = stmt.get(visitor_id);
+        
+        if (!targetVisitor) {
+          throw new Error(`Visitor ${visitor_id} not found`);
+        }
+      } else {
+        const stmt = db.prepare('SELECT * FROM doorbell_events ORDER BY timestamp DESC LIMIT 1');
+        targetVisitor = stmt.get();
+        
+        if (!targetVisitor) {
+          throw new Error('No visitors found to analyze');
+        }
+      }
+      
+      if (!targetVisitor.image_url) {
+        throw new Error(`Visitor ${targetVisitor.id} has no image to analyze`);
+      }
+      
+      console.log(`Processing direct analysis for visitor ${targetVisitor.id}`);
+      
+      // Process analysis using existing private method
+      const result = await AnalysisController._processVisitorAnalysis(targetVisitor);
+      
+      return {
+        success: true,
+        visitor_id: targetVisitor.id,
+        message: 'Analysis completed successfully',
+        ...result
+      };
+      
+    } catch (error) {
+      console.error('Error in direct analysis processing:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Process AI analysis for a visitor
    * @private
    */
@@ -178,6 +227,16 @@ class AnalysisController {
       }
       
       console.log(`Analysis processing completed for visitor ${visitor.id}`);
+      
+      // Return analysis results for direct calls
+      return {
+        analysis: analysisResults.ai_message || visitor.ai_message,
+        confidence: analysisResults.scene_analysis?.overall_confidence || 0,
+        faces_detected: analysisResults.faces_detected || 0,
+        provider: aiProvider,
+        objects_detected: analysisResults.objects_detected?.length || 0,
+        scene_analysis: analysisResults.scene_analysis
+      };
       
     } catch (error) {
       console.error(`Error processing analysis for visitor ${visitor.id}:`, error);

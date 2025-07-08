@@ -159,19 +159,20 @@ function handleWebhookEvent(req, res) {
           });
           
           const analysisController = require('../controllers/analysisController');
-          const result = await analysisController.triggerAnalysis(eventWithId.id);
+          const result = await analysisController.processAnalysisDirectly(eventWithId.id);
           
           console.log('Automatic analysis completed for visitor:', eventWithId.id);
           
-          // Broadcast analysis complete
+          // Broadcast analysis complete with actual results
           broadcast({
             type: 'analysis_complete',
             data: {
               visitor_id: eventWithId.id,
-              analysis: result?.analysis || 'Analysis completed',
-              confidence: result?.confidence || 0,
-              faces_detected: result?.faces_detected || 0,
-              provider: result?.provider || 'unknown',
+              analysis: result.analysis || 'Analysis completed',
+              confidence: result.confidence || 0,
+              faces_detected: result.faces_detected || 0,
+              provider: result.provider || 'unknown',
+              objects_detected: result.objects_detected || 0,
               timestamp: new Date().toISOString()
             }
           });
