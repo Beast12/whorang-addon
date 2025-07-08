@@ -36,48 +36,51 @@ class OpenAIVisionProvider extends BaseAIProvider {
       // Handle image URL - convert local paths to accessible URLs
       const processedImageUrl = await this.processImageUrl(imageUrl);
       
-      const prompt = `Analyze this doorbell camera image comprehensively. Provide:
+      const prompt = `Analyze this doorbell camera image and provide a comprehensive analysis. Look carefully at what you actually see in the image.
 
-1. FACE DETECTION: Detect all human faces with exact bounding box coordinates as percentages (x, y, width, height), confidence levels (0-100), detailed descriptions, and quality assessment.
+INSTRUCTIONS:
+1. FACE DETECTION: Identify all human faces visible in the image. For each face, provide:
+   - Exact bounding box coordinates as percentages (x, y, width, height)
+   - Confidence level (0-100) based on clarity and visibility
+   - Detailed description of what you observe
+   - Quality assessment (clear/good/fair/poor)
+   - Any distinctive features you can identify
 
-2. OBJECT DETECTION: Identify all significant objects, people, vehicles, packages, animals, etc. with confidence levels.
+2. OBJECT DETECTION: Identify all significant objects, people, vehicles, packages, animals, etc. that you can see. Provide confidence levels based on how certain you are about each identification.
 
-3. SCENE ANALYSIS: Overall confidence in the analysis and general scene description.
+3. SCENE ANALYSIS: Provide your overall assessment of the image quality, lighting conditions, and general scene description.
 
-Return ONLY valid JSON in this exact format:
+IMPORTANT: Analyze what you actually see in THIS specific image. Do not use generic examples or placeholder data.
+
+Return ONLY valid JSON in this structure:
 {
-  "faces_detected": number,
+  "faces_detected": [number of faces you actually detected],
   "faces": [
     {
-      "id": 1,
-      "bounding_box": {"x": 25.5, "y": 30.2, "width": 15.8, "height": 20.1},
-      "confidence": 85,
-      "description": "Adult male, approximately 30-40 years old, clear frontal view",
-      "quality": "clear",
-      "distinctive_features": ["beard", "glasses"]
+      "id": [sequential number],
+      "bounding_box": {"x": [actual x%], "y": [actual y%], "width": [actual width%], "height": [actual height%]},
+      "confidence": [your confidence 0-100],
+      "description": "[describe what you actually see]",
+      "quality": "[your assessment of image quality]",
+      "distinctive_features": ["list", "actual", "features", "you", "observe"]
     }
   ],
   "objects_detected": [
     {
-      "object": "person",
-      "confidence": 90,
-      "description": "Adult standing at door"
-    },
-    {
-      "object": "package",
-      "confidence": 75,
-      "description": "Small delivery box on ground"
+      "object": "[actual object type you see]",
+      "confidence": [your confidence 0-100],
+      "description": "[describe the specific object you see]"
     }
   ],
   "scene_analysis": {
-    "overall_confidence": 85,
-    "description": "Clear daytime image of person at front door",
-    "lighting": "good",
-    "image_quality": "high"
+    "overall_confidence": [your overall confidence in the analysis],
+    "description": "[describe the actual scene you observe]",
+    "lighting": "[describe actual lighting conditions]",
+    "image_quality": "[assess actual image quality]"
   }
 }
 
-If no faces are detected, set faces_detected to 0 and faces to empty array. Always include objects_detected and scene_analysis.`;
+If no faces are detected, set faces_detected to 0 and faces to empty array. Always include objects_detected and scene_analysis based on what you actually observe.`;
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -539,49 +542,54 @@ class LocalOllamaProvider extends BaseAIProvider {
     const startTime = Date.now();
     
     try {
-      // Enhanced prompt for comprehensive scene analysis
-      const prompt = `Analyze this doorbell camera image comprehensively. Provide:
+      // Enhanced prompt for comprehensive scene analysis - optimized for Ollama
+      const prompt = `You are analyzing a doorbell camera image. Look carefully at what you actually see in this specific image and provide a detailed analysis.
 
-1. FACE DETECTION: Detect all human faces with exact bounding box coordinates as percentages (x, y, width, height), confidence levels (0-100), detailed descriptions, and quality assessment.
+TASK: Analyze this doorbell camera image and describe exactly what you observe.
 
-2. OBJECT DETECTION: Identify all significant objects, people, vehicles, packages, animals, etc. with confidence levels.
+INSTRUCTIONS:
+1. FACE DETECTION: Look for human faces in the image. For each face you see:
+   - Provide bounding box coordinates as percentages (x, y, width, height) 
+   - Give confidence level (0-100) based on how clearly you can see the face
+   - Describe the person you actually observe
+   - Assess image quality for that face
+   - Note any distinctive features you can identify
 
-3. SCENE ANALYSIS: Overall confidence in the analysis and general scene description.
+2. OBJECT DETECTION: Identify objects, people, vehicles, packages, animals, etc. that you can actually see in this image. Be specific about what you observe.
 
-Return ONLY valid JSON in this exact format:
+3. SCENE ANALYSIS: Describe the overall scene, lighting conditions, and image quality based on what you actually see.
+
+CRITICAL: Analyze THIS specific image. Do not use generic examples or placeholder descriptions. Describe what you actually observe.
+
+Return ONLY valid JSON in this structure:
 {
-  "faces_detected": number,
+  "faces_detected": [number of faces you actually see],
   "faces": [
     {
-      "id": 1,
-      "bounding_box": {"x": 25.5, "y": 30.2, "width": 15.8, "height": 20.1},
-      "confidence": 85,
-      "description": "Adult male, approximately 30-40 years old, clear frontal view",
-      "quality": "clear",
-      "distinctive_features": ["beard", "glasses"]
+      "id": [sequential number],
+      "bounding_box": {"x": [actual percentage], "y": [actual percentage], "width": [actual percentage], "height": [actual percentage]},
+      "confidence": [your confidence 0-100],
+      "description": "[describe the actual person you see]",
+      "quality": "[your assessment: clear/good/fair/poor]",
+      "distinctive_features": ["list", "actual", "features", "you", "observe"]
     }
   ],
   "objects_detected": [
     {
-      "object": "person",
-      "confidence": 90,
-      "description": "Adult standing at door"
-    },
-    {
-      "object": "package",
-      "confidence": 75,
-      "description": "Small delivery box on ground"
+      "object": "[actual object you see]",
+      "confidence": [your confidence 0-100],
+      "description": "[describe the specific object you observe]"
     }
   ],
   "scene_analysis": {
-    "overall_confidence": 85,
-    "description": "Clear daytime image of person at front door",
-    "lighting": "good",
-    "image_quality": "high"
+    "overall_confidence": [your confidence in this analysis],
+    "description": "[describe the actual scene you observe]",
+    "lighting": "[describe actual lighting: bright/good/dim/poor/etc]",
+    "image_quality": "[assess actual quality: high/good/fair/poor]"
   }
 }
 
-If no faces are detected, set faces_detected to 0 and faces to empty array. Always include objects_detected and scene_analysis.`;
+If you see no faces, set faces_detected to 0 and faces to empty array. Always analyze what you actually observe in this specific image.`;
 
       // Convert image to base64 if it's a local path
       const imageBase64 = await this.convertImageToBase64(imageUrl);
@@ -916,48 +924,51 @@ class GoogleGeminiProvider extends BaseAIProvider {
       // Convert image to base64 if needed
       const imageBase64 = await this.convertImageToBase64(imageUrl);
 
-      const prompt = `Analyze this doorbell camera image comprehensively. Provide:
+      const prompt = `Analyze this doorbell camera image and provide a comprehensive analysis. Look carefully at what you actually see in the image.
 
-1. FACE DETECTION: Detect all human faces with exact bounding box coordinates as percentages (x, y, width, height), confidence levels (0-100), detailed descriptions, and quality assessment.
+INSTRUCTIONS:
+1. FACE DETECTION: Identify all human faces visible in the image. For each face, provide:
+   - Exact bounding box coordinates as percentages (x, y, width, height)
+   - Confidence level (0-100) based on clarity and visibility
+   - Detailed description of what you observe
+   - Quality assessment (clear/good/fair/poor)
+   - Any distinctive features you can identify
 
-2. OBJECT DETECTION: Identify all significant objects, people, vehicles, packages, animals, etc. with confidence levels.
+2. OBJECT DETECTION: Identify all significant objects, people, vehicles, packages, animals, etc. that you can see. Provide confidence levels based on how certain you are about each identification.
 
-3. SCENE ANALYSIS: Overall confidence in the analysis and general scene description.
+3. SCENE ANALYSIS: Provide your overall assessment of the image quality, lighting conditions, and general scene description.
 
-Return ONLY valid JSON in this exact format:
+IMPORTANT: Analyze what you actually see in THIS specific image. Do not use generic examples or placeholder data.
+
+Return ONLY valid JSON in this structure:
 {
-  "faces_detected": number,
+  "faces_detected": [number of faces you actually detected],
   "faces": [
     {
-      "id": 1,
-      "bounding_box": {"x": 25.5, "y": 30.2, "width": 15.8, "height": 20.1},
-      "confidence": 85,
-      "description": "Adult male, approximately 30-40 years old, clear frontal view",
-      "quality": "clear",
-      "distinctive_features": ["beard", "glasses"]
+      "id": [sequential number],
+      "bounding_box": {"x": [actual x%], "y": [actual y%], "width": [actual width%], "height": [actual height%]},
+      "confidence": [your confidence 0-100],
+      "description": "[describe what you actually see]",
+      "quality": "[your assessment of image quality]",
+      "distinctive_features": ["list", "actual", "features", "you", "observe"]
     }
   ],
   "objects_detected": [
     {
-      "object": "person",
-      "confidence": 90,
-      "description": "Adult standing at door"
-    },
-    {
-      "object": "package",
-      "confidence": 75,
-      "description": "Small delivery box on ground"
+      "object": "[actual object type you see]",
+      "confidence": [your confidence 0-100],
+      "description": "[describe the specific object you see]"
     }
   ],
   "scene_analysis": {
-    "overall_confidence": 85,
-    "description": "Clear daytime image of person at front door",
-    "lighting": "good",
-    "image_quality": "high"
+    "overall_confidence": [your overall confidence in the analysis],
+    "description": "[describe the actual scene you observe]",
+    "lighting": "[describe actual lighting conditions]",
+    "image_quality": "[assess actual image quality]"
   }
 }
 
-If no faces are detected, set faces_detected to 0 and faces to empty array. Always include objects_detected and scene_analysis.`;
+If no faces are detected, set faces_detected to 0 and faces to empty array. Always include objects_detected and scene_analysis based on what you actually observe.`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.config.api_key}`, {
         method: 'POST',
@@ -1733,48 +1744,51 @@ class ClaudeVisionProvider extends BaseAIProvider {
       // Convert image to base64 if needed
       const imageBase64 = await this.convertImageToBase64(imageUrl);
 
-      const prompt = `Analyze this doorbell camera image comprehensively. Provide:
+      const prompt = `Analyze this doorbell camera image and provide a comprehensive analysis. Look carefully at what you actually see in the image.
 
-1. FACE DETECTION: Detect all human faces with exact bounding box coordinates as percentages (x, y, width, height), confidence levels (0-100), detailed descriptions, and quality assessment.
+INSTRUCTIONS:
+1. FACE DETECTION: Identify all human faces visible in the image. For each face, provide:
+   - Exact bounding box coordinates as percentages (x, y, width, height)
+   - Confidence level (0-100) based on clarity and visibility
+   - Detailed description of what you observe
+   - Quality assessment (clear/good/fair/poor)
+   - Any distinctive features you can identify
 
-2. OBJECT DETECTION: Identify all significant objects, people, vehicles, packages, animals, etc. with confidence levels.
+2. OBJECT DETECTION: Identify all significant objects, people, vehicles, packages, animals, etc. that you can see. Provide confidence levels based on how certain you are about each identification.
 
-3. SCENE ANALYSIS: Overall confidence in the analysis and general scene description.
+3. SCENE ANALYSIS: Provide your overall assessment of the image quality, lighting conditions, and general scene description.
 
-Return ONLY valid JSON in this exact format:
+IMPORTANT: Analyze what you actually see in THIS specific image. Do not use generic examples or placeholder data.
+
+Return ONLY valid JSON in this structure:
 {
-  "faces_detected": number,
+  "faces_detected": [number of faces you actually detected],
   "faces": [
     {
-      "id": 1,
-      "bounding_box": {"x": 25.5, "y": 30.2, "width": 15.8, "height": 20.1},
-      "confidence": 85,
-      "description": "Adult male, approximately 30-40 years old, clear frontal view",
-      "quality": "clear",
-      "distinctive_features": ["beard", "glasses"]
+      "id": [sequential number],
+      "bounding_box": {"x": [actual x%], "y": [actual y%], "width": [actual width%], "height": [actual height%]},
+      "confidence": [your confidence 0-100],
+      "description": "[describe what you actually see]",
+      "quality": "[your assessment of image quality]",
+      "distinctive_features": ["list", "actual", "features", "you", "observe"]
     }
   ],
   "objects_detected": [
     {
-      "object": "person",
-      "confidence": 90,
-      "description": "Adult standing at door"
-    },
-    {
-      "object": "package",
-      "confidence": 75,
-      "description": "Small delivery box on ground"
+      "object": "[actual object type you see]",
+      "confidence": [your confidence 0-100],
+      "description": "[describe the specific object you see]"
     }
   ],
   "scene_analysis": {
-    "overall_confidence": 85,
-    "description": "Clear daytime image of person at front door",
-    "lighting": "good",
-    "image_quality": "high"
+    "overall_confidence": [your overall confidence in the analysis],
+    "description": "[describe the actual scene you observe]",
+    "lighting": "[describe actual lighting conditions]",
+    "image_quality": "[assess actual image quality]"
   }
 }
 
-If no faces are detected, set faces_detected to 0 and faces to empty array. Always include objects_detected and scene_analysis.`;
+If no faces are detected, set faces_detected to 0 and faces to empty array. Always include objects_detected and scene_analysis based on what you actually observe.`;
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
