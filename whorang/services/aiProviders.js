@@ -55,9 +55,31 @@ class BaseAIProvider {
       { x: 25, y: 25, width: 50, height: 50 },    // Center crop fallback
       { x: 0, y: 0, width: 100, height: 100 },    // Full image fallback
       { x: 40, y: 30, width: 20, height: 30 },    // OpenAI placeholder coordinates
+      { x: 40, y: 35, width: 20, height: 30 },    // OpenAI placeholder coordinates variant
       { x: 50, y: 50, width: 25, height: 25 },    // Another common fallback
       { x: 30, y: 20, width: 40, height: 60 },    // Another placeholder pattern
     ];
+    
+    // Also check for suspiciously similar patterns (round numbers that look like placeholders)
+    const isSuspiciousPattern = (x, y, width, height) => {
+      // Check if coordinates are suspiciously round numbers that suggest placeholders
+      const roundNumbers = [x, y, width, height].filter(val => val % 5 === 0).length;
+      const veryRoundNumbers = [x, y, width, height].filter(val => val % 10 === 0).length;
+      
+      // If all coordinates are multiples of 5, and most are multiples of 10, it's suspicious
+      if (roundNumbers === 4 && veryRoundNumbers >= 3) {
+        console.warn(`⚠️  Suspicious round number pattern: ${JSON.stringify({x, y, width, height})}`);
+        return true;
+      }
+      
+      // Check for common AI placeholder ranges
+      if (x >= 35 && x <= 45 && y >= 25 && y <= 40 && width >= 15 && width <= 25 && height >= 25 && height <= 35) {
+        console.warn(`⚠️  Coordinates match common AI placeholder range: ${JSON.stringify({x, y, width, height})}`);
+        return true;
+      }
+      
+      return false;
+    };
     
     // Check if coordinates match any known default patterns exactly
     for (const defaultBox of defaultBoxes) {
@@ -66,6 +88,11 @@ class BaseAIProvider {
         console.warn(`⚠️  Detected known placeholder bounding box: ${JSON.stringify(bbox)}`);
         return true;
       }
+    }
+    
+    // Check for suspicious patterns (round numbers that suggest placeholders)
+    if (isSuspiciousPattern(x, y, width, height)) {
+      return true;
     }
     
     // Check for suspiciously small faces (likely errors)
@@ -113,51 +140,62 @@ class OpenAIVisionProvider extends BaseAIProvider {
       // Handle image URL - convert local paths to accessible URLs
       const processedImageUrl = await this.processImageUrl(imageUrl);
       
-      const prompt = `Analyze this doorbell camera image and provide a comprehensive analysis. Look carefully at what you actually see in the image.
+      const prompt = `You are a precise face detection system analyzing a doorbell camera image. Your task is to locate human faces with pixel-perfect accuracy.
 
-INSTRUCTIONS:
-1. FACE DETECTION: Identify all human faces visible in the image. For each face, provide:
-   - Exact bounding box coordinates as percentages (x, y, width, height)
-   - Confidence level (0-100) based on clarity and visibility
-   - Detailed description of what you observe
-   - Quality assessment (clear/good/fair/poor)
-   - Any distinctive features you can identify
+CRITICAL INSTRUCTIONS:
+1. EXAMINE THE IMAGE CAREFULLY: Look at every part of the image to find human faces
+2. MEASURE PRECISELY: When you find a face, measure its exact location as percentages of the image dimensions
+3. BE ACCURATE: Only provide coordinates if you can clearly see a face at that location
+4. NO GUESSING: If you cannot clearly identify a face location, do not provide coordinates
 
-2. OBJECT DETECTION: Identify all significant objects, people, vehicles, packages, animals, etc. that you can see. Provide confidence levels based on how certain you are about each identification.
+FACE DETECTION REQUIREMENTS:
+- Look for human faces, heads, or partial faces in the image
+- Measure the bounding box that tightly contains the face/head area
+- Provide coordinates as percentages: x=left edge, y=top edge, width=face width, height=face height
+- Only report faces you can actually see and locate precisely
+- Confidence should reflect how clearly you can see the face (not a guess)
 
-3. SCENE ANALYSIS: Provide your overall assessment of the image quality, lighting conditions, and general scene description.
+COORDINATE ACCURACY:
+- x: percentage from left edge of image to left edge of face
+- y: percentage from top edge of image to top edge of face  
+- width: percentage width of the face area
+- height: percentage height of the face area
+- Example: A face in the center-right taking up 15% width and 20% height might be: {"x": 60, "y": 40, "width": 15, "height": 20}
 
-IMPORTANT: Analyze what you actually see in THIS specific image. Do not use generic examples or placeholder data.
+IMPORTANT: 
+- DO NOT use placeholder coordinates like (40,30) or (25,25) or similar round numbers
+- DO NOT guess face locations - only report what you can clearly see
+- If you cannot locate a face precisely, set faces_detected to 0
 
-Return ONLY valid JSON in this structure:
+Return ONLY valid JSON:
 {
-  "faces_detected": [number of faces you actually detected],
+  "faces_detected": [number of faces you can actually locate],
   "faces": [
     {
-      "id": [sequential number],
-      "bounding_box": {"x": [actual x%], "y": [actual y%], "width": [actual width%], "height": [actual height%]},
-      "confidence": [your confidence 0-100],
-      "description": "[describe what you actually see]",
-      "quality": "[your assessment of image quality]",
-      "distinctive_features": ["list", "actual", "features", "you", "observe"]
+      "id": 1,
+      "bounding_box": {"x": [precise x%], "y": [precise y%], "width": [precise width%], "height": [precise height%]},
+      "confidence": [0-100 based on face clarity],
+      "description": "[describe the actual face you see]",
+      "quality": "[clear/good/fair/poor]",
+      "distinctive_features": ["actual", "features", "you", "observe"]
     }
   ],
   "objects_detected": [
     {
-      "object": "[actual object type you see]",
-      "confidence": [your confidence 0-100],
-      "description": "[describe the specific object you see]"
+      "object": "[object you see]",
+      "confidence": [0-100],
+      "description": "[describe what you see]"
     }
   ],
   "scene_analysis": {
-    "overall_confidence": [your overall confidence in the analysis],
-    "description": "[describe the actual scene you observe]",
-    "lighting": "[describe actual lighting conditions]",
-    "image_quality": "[assess actual image quality]"
+    "overall_confidence": [your confidence in this analysis],
+    "description": "[describe what you observe]",
+    "lighting": "[lighting conditions]",
+    "image_quality": "[image quality assessment]"
   }
 }
 
-If no faces are detected, set faces_detected to 0 and faces to empty array. Always include objects_detected and scene_analysis based on what you actually observe.`;
+If no faces can be precisely located, return faces_detected: 0 and empty faces array.`;
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
