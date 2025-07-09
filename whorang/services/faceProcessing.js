@@ -2,14 +2,20 @@
 const { createAIProvider } = require('./aiProviders');
 const { broadcast } = require('../websocket/handler');
 
-// Try to load the full face cropping service, fall back to lite version if canvas is not available
+// Use the new Sharp-based face cropping service for precise cropping
 let faceCroppingService;
 try {
-  faceCroppingService = require('./faceCroppingService');
-  console.log('Using full face cropping service with canvas');
+  faceCroppingService = require('./faceCroppingServiceSharp');
+  console.log('Using Sharp-based face cropping service for precise cropping');
 } catch (error) {
-  console.log('Canvas not available, using lite face cropping service:', error.message);
-  faceCroppingService = require('./faceCroppingServiceLite');
+  console.log('Sharp not available, falling back to canvas-based service:', error.message);
+  try {
+    faceCroppingService = require('./faceCroppingService');
+    console.log('Using full face cropping service with canvas');
+  } catch (canvasError) {
+    console.log('Canvas not available, using lite face cropping service:', canvasError.message);
+    faceCroppingService = require('./faceCroppingServiceLite');
+  }
 }
 
 class FaceProcessingService {

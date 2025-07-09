@@ -1,0 +1,440 @@
+const fs = require('fs').promises;
+const path = require('path');
+const sharp = require('sharp');
+
+class FaceCroppingServiceSharp {
+  constructor() {
+    this.uploadsDir = path.join(__dirname, '../uploads');
+    this.facesDir = path.join(this.uploadsDir, 'faces');
+    this.thumbnailsDir = path.join(this.uploadsDir, 'thumbnails');
+    
+    // Ensure directories exist
+    this.ensureDirectories();
+  }
+
+  async ensureDirectories() {
+    try {
+      await fs.mkdir(this.uploadsDir, { recursive: true });
+      await fs.mkdir(this.facesDir, { recursive: true });
+      await fs.mkdir(this.thumbnailsDir, { recursive: true });
+      console.log('Sharp face cropping directories ensured');
+    } catch (error) {
+      console.error('Error creating Sharp face cropping directories:', error);
+    }
+  }
+
+  /**
+   * Extract face crops from a full doorbell image using Sharp for precise cropping
+   * @param {string} imageUrl - URL or path to the full image
+   * @param {Array} faceDetections - Array of face detection results with bounding boxes
+   * @param {number} visitorEventId - ID of the visitor event
+   * @returns {Array} Array of face crop information
+   */
+  async extractFaceCrops(imageUrl, faceDetections, visitorEventId) {
+    try {
+      console.log(`Sharp: Extracting ${faceDetections.length} face crops from image: ${imageUrl}`);
+      
+      // Load the full image and get metadata
+      const fullImagePath = await this.resolveImagePath(imageUrl);
+      const image = sharp(fullImagePath);
+      const metadata = await image.metadata();
+      
+      console.log(`Sharp: Image metadata - ${metadata.width}x${metadata.height}, format: ${metadata.format}`);
+      
+      const faceCrops = [];
+      
+      for (let i = 0; i < faceDetections.length; i++) {
+        const face = faceDetections[i];
+        const faceId = `${visitorEventId}_face_${i + 1}_${Date.now()}`;
+        
+        try {
+          // Extract face crop using Sharp
+          const faceCrop = await this.cropFaceWithSharp(fullImagePath, face.bounding_box, faceId, metadata);
+          
+          // Generate thumbnail
+          const thumbnail = await this.generateThumbnailWithSharp(faceCrop.path, faceId);
+          
+          faceCrops.push({
+            faceId,
+            faceCropPath: faceCrop.path,
+            thumbnailPath: thumbnail.path,
+            boundingBox: face.bounding_box,
+            confidence: face.confidence,
+            qualityScore: this.calculateFaceQuality(face, metadata.width, metadata.height),
+            originalFace: face,
+            cropDimensions: faceCrop.dimensions
+          });
+          
+          console.log(`Sharp: Face crop ${i + 1} extracted: ${faceCrop.path} (${faceCrop.dimensions.width}x${faceCrop.dimensions.height})`);
+        } catch (error) {
+          console.error(`Sharp: Error extracting face crop ${i + 1}:`, error);
+        }
+      }
+      
+      return faceCrops;
+    } catch (error) {
+      console.error('Sharp: Error in extractFaceCrops:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Crop a single face from the full image using Sharp for pixel-perfect precision
+   */
+  async cropFaceWithSharp(imagePath, boundingBox, faceId, metadata) {
+    const { x, y, width, height } = boundingBox;
+    
+    console.log(`Sharp: Processing bounding box: x=${x}%, y=${y}%, w=${width}%, h=${height}%`);
+    
+    // Convert from percentage to pixels
+    const cropX = Math.round((x / 100) * metadata.width);
+    const cropY = Math.round((y / 100) * metadata.height);
+    const cropWidth = Math.round((width / 100) * metadata.width);
+    const cropHeight = Math.round((height / 100) * metadata.height);
+    
+    console.log(`Sharp: Pixel coordinates: x=${cropX}, y=${cropY}, w=${cropWidth}, h=${cropHeight}`);
+    
+    // Validate crop boundaries
+    const finalX = Math.max(0, Math.min(cropX, metadata.width - 1));
+    const finalY = Math.max(0, Math.min(cropY, metadata.height - 1));
+    const finalWidth = Math.max(1, Math.min(cropWidth, metadata.width - finalX));
+    const finalHeight = Math.max(1, Math.min(cropHeight, metadata.height - finalY));
+    
+    if (finalX !== cropX || finalY !== cropY || finalWidth !== cropWidth || finalHeight !== cropHeight) {
+      console.log(`Sharp: Adjusted crop boundaries: x=${finalX}, y=${finalY}, w=${finalWidth}, h=${finalHeight}`);
+    }
+    
+    // Add minimal padding for context (5% on each side)
+    const paddingPercent = 0.05;
+    const paddingX = Math.round(finalWidth * paddingPercent);
+    const paddingY = Math.round(finalHeight * paddingPercent);
+    
+    const paddedX = Math.max(0, finalX - paddingX);
+    const paddedY = Math.max(0, finalY - paddingY);
+    const paddedWidth = Math.min(metadata.width - paddedX, finalWidth + (paddingX * 2));
+    const paddedHeight = Math.min(metadata.height - paddedY, finalHeight + (paddingY * 2));
+    
+    console.log(`Sharp: Final crop with padding: x=${paddedX}, y=${paddedY}, w=${paddedWidth}, h=${paddedHeight}`);
+    
+    // Create output path
+    const filename = `${faceId}.jpg`;
+    const filepath = path.join(this.facesDir, filename);
+    
+    // Perform the precise crop using Sharp
+    await sharp(imagePath)
+      .extract({ 
+        left: paddedX, 
+        top: paddedY, 
+        width: paddedWidth, 
+        height: paddedHeight 
+      })
+      .jpeg({ quality: 90 })
+      .toFile(filepath);
+    
+    return {
+      path: `/uploads/faces/${filename}`,
+      filename,
+      dimensions: { width: paddedWidth, height: paddedHeight }
+    };
+  }
+
+  /**
+   * Generate a thumbnail from a face crop using Sharp
+   */
+  async generateThumbnailWithSharp(faceCropPath, faceId) {
+    const thumbnailSize = 150; // 150x150 thumbnail
+    
+    // Create thumbnail filename and path
+    const filename = `thumb_${faceId}.jpg`;
+    const filepath = path.join(this.thumbnailsDir, filename);
+    
+    // Get the full path to the face crop
+    const fullFaceCropPath = path.join(__dirname, '..', faceCropPath);
+    
+    // Generate thumbnail with Sharp
+    await sharp(fullFaceCropPath)
+      .resize(thumbnailSize, thumbnailSize, {
+        fit: 'cover',
+        position: 'center'
+      })
+      .jpeg({ quality: 80 })
+      .toFile(filepath);
+    
+    return {
+      path: `/uploads/thumbnails/${filename}`,
+      filename,
+      size: thumbnailSize
+    };
+  }
+
+  /**
+   * Calculate face quality score based on various factors
+   */
+  calculateFaceQuality(face, imageWidth, imageHeight) {
+    let qualityScore = 0.5; // Base score
+    
+    const { x, y, width, height } = face.bounding_box;
+    
+    // Size factor - larger faces are generally better quality
+    const faceArea = (width / 100) * (height / 100); // Normalized area
+    const sizeScore = Math.min(faceArea * 10, 1); // Normalize to 0-1
+    qualityScore += sizeScore * 0.3;
+    
+    // Confidence factor
+    const confidenceScore = face.confidence / 100;
+    qualityScore += confidenceScore * 0.4;
+    
+    // Position factor - faces in center are often better quality
+    const centerX = 50; // Center in percentage coordinates
+    const centerY = 50;
+    const faceX = x + (width / 2);
+    const faceY = y + (height / 2);
+    
+    const distanceFromCenter = Math.sqrt(
+      Math.pow(faceX - centerX, 2) + Math.pow(faceY - centerY, 2)
+    );
+    const maxDistance = Math.sqrt(50 * 50 + 50 * 50); // Max distance from center
+    const positionScore = Math.max(0, 1 - (distanceFromCenter / maxDistance));
+    qualityScore += positionScore * 0.2;
+    
+    // Quality indicators from face description
+    if (face.quality === 'clear') qualityScore += 0.1;
+    if (face.description && face.description.includes('frontal')) qualityScore += 0.1;
+    if (face.description && face.description.includes('profile')) qualityScore -= 0.1;
+    if (face.description && face.description.includes('blurry')) qualityScore -= 0.2;
+    
+    return Math.max(0, Math.min(1, qualityScore));
+  }
+
+  /**
+   * Generate face embedding using AI description
+   */
+  async generateFaceEmbedding(faceCropPath, faceDescription) {
+    try {
+      // For now, create a simple embedding based on description
+      // In a real implementation, this would use a proper face embedding model
+      const features = this.extractFeaturesFromDescription(faceDescription);
+      
+      // Create a simple numerical representation
+      const embedding = this.createEmbeddingVector(features);
+      
+      return {
+        embedding: embedding,
+        features: features,
+        method: 'description_based'
+      };
+    } catch (error) {
+      console.error('Sharp: Error generating face embedding:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Extract features from AI description
+   */
+  extractFeaturesFromDescription(description) {
+    const features = {
+      age_group: 'unknown',
+      gender: 'unknown',
+      has_glasses: false,
+      has_beard: false,
+      has_mustache: false,
+      hair_color: 'unknown',
+      skin_tone: 'unknown'
+    };
+
+    if (!description) return features;
+
+    const desc = description.toLowerCase();
+
+    // Age detection
+    if (desc.includes('child') || desc.includes('kid')) features.age_group = 'child';
+    else if (desc.includes('teen') || desc.includes('young')) features.age_group = 'young';
+    else if (desc.includes('adult') || desc.includes('middle')) features.age_group = 'adult';
+    else if (desc.includes('elderly') || desc.includes('senior')) features.age_group = 'elderly';
+
+    // Gender detection
+    if (desc.includes('male') && !desc.includes('female')) features.gender = 'male';
+    else if (desc.includes('female')) features.gender = 'female';
+
+    // Accessories
+    features.has_glasses = desc.includes('glasses') || desc.includes('spectacles');
+    features.has_beard = desc.includes('beard');
+    features.has_mustache = desc.includes('mustache') || desc.includes('moustache');
+
+    // Hair color
+    if (desc.includes('blonde') || desc.includes('blond')) features.hair_color = 'blonde';
+    else if (desc.includes('brown')) features.hair_color = 'brown';
+    else if (desc.includes('black')) features.hair_color = 'black';
+    else if (desc.includes('red') || desc.includes('ginger')) features.hair_color = 'red';
+    else if (desc.includes('gray') || desc.includes('grey')) features.hair_color = 'gray';
+
+    return features;
+  }
+
+  /**
+   * Create embedding vector from features
+   */
+  createEmbeddingVector(features) {
+    // Create a simple 32-dimensional vector based on features
+    const vector = new Array(32).fill(0);
+
+    // Age group encoding (positions 0-3)
+    const ageGroups = ['child', 'young', 'adult', 'elderly'];
+    const ageIndex = ageGroups.indexOf(features.age_group);
+    if (ageIndex >= 0) vector[ageIndex] = 1;
+
+    // Gender encoding (positions 4-5)
+    if (features.gender === 'male') vector[4] = 1;
+    else if (features.gender === 'female') vector[5] = 1;
+
+    // Accessories (positions 6-8)
+    if (features.has_glasses) vector[6] = 1;
+    if (features.has_beard) vector[7] = 1;
+    if (features.has_mustache) vector[8] = 1;
+
+    // Hair color (positions 9-13)
+    const hairColors = ['blonde', 'brown', 'black', 'red', 'gray'];
+    const hairIndex = hairColors.indexOf(features.hair_color);
+    if (hairIndex >= 0) vector[9 + hairIndex] = 1;
+
+    // Add some randomness for uniqueness (positions 14-31)
+    for (let i = 14; i < 32; i++) {
+      vector[i] = Math.random() * 0.1; // Small random values
+    }
+
+    return vector;
+  }
+
+  /**
+   * Calculate similarity between two face embeddings
+   */
+  calculateEmbeddingSimilarity(embedding1, embedding2) {
+    if (!embedding1 || !embedding2 || embedding1.length !== embedding2.length) {
+      return 0;
+    }
+
+    // Calculate cosine similarity
+    let dotProduct = 0;
+    let norm1 = 0;
+    let norm2 = 0;
+
+    for (let i = 0; i < embedding1.length; i++) {
+      dotProduct += embedding1[i] * embedding2[i];
+      norm1 += embedding1[i] * embedding1[i];
+      norm2 += embedding2[i] * embedding2[i];
+    }
+
+    if (norm1 === 0 || norm2 === 0) return 0;
+
+    return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
+  }
+
+  /**
+   * Resolve image path from URL - supports both local files and remote URLs
+   */
+  async resolveImagePath(imageUrl) {
+    if (imageUrl.startsWith('/uploads/')) {
+      return path.join(__dirname, '..', imageUrl);
+    } else if (imageUrl.startsWith('http')) {
+      // Download remote image and return local path
+      return await this.downloadRemoteImage(imageUrl);
+    } else {
+      return imageUrl;
+    }
+  }
+
+  /**
+   * Download remote image and save to temporary location
+   */
+  async downloadRemoteImage(url) {
+    const http = require('http');
+    const https = require('https');
+    const { URL } = require('url');
+    
+    return new Promise((resolve, reject) => {
+      const urlObj = new URL(url);
+      const client = urlObj.protocol === 'https:' ? https : http;
+      
+      // Create temporary filename
+      const tempFilename = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+      const tempPath = path.join(this.uploadsDir, tempFilename);
+      
+      const request = client.get(url, {
+        timeout: 15000,
+        headers: {
+          'User-Agent': 'Doorbell-Face-Cropping-Sharp/1.0'
+        }
+      }, (response) => {
+        if (response.statusCode !== 200) {
+          reject(new Error(`Failed to download image: HTTP ${response.statusCode}`));
+          return;
+        }
+        
+        const fileStream = require('fs').createWriteStream(tempPath);
+        
+        response.pipe(fileStream);
+        
+        fileStream.on('finish', () => {
+          fileStream.close();
+          console.log(`Sharp: Downloaded remote image to: ${tempPath}`);
+          resolve(tempPath);
+        });
+        
+        fileStream.on('error', (error) => {
+          // Clean up partial file
+          require('fs').unlink(tempPath, () => {});
+          reject(error);
+        });
+        
+        response.on('error', (error) => {
+          // Clean up partial file
+          require('fs').unlink(tempPath, () => {});
+          reject(error);
+        });
+      });
+      
+      request.on('error', (error) => {
+        reject(error);
+      });
+      
+      request.on('timeout', () => {
+        request.destroy();
+        reject(new Error('Image download timeout'));
+      });
+    });
+  }
+
+  /**
+   * Clean up old face crops and thumbnails
+   */
+  async cleanupOldFiles(daysOld = 30) {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+      const directories = [this.facesDir, this.thumbnailsDir];
+
+      for (const dir of directories) {
+        const files = await fs.readdir(dir);
+        
+        for (const file of files) {
+          const filePath = path.join(dir, file);
+          const stats = await fs.stat(filePath);
+          
+          if (stats.mtime < cutoffDate) {
+            await fs.unlink(filePath);
+            console.log(`Sharp: Cleaned up old file: ${file}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Sharp: Error cleaning up old files:', error);
+    }
+  }
+}
+
+// Create singleton instance
+const faceCroppingServiceSharp = new FaceCroppingServiceSharp();
+
+module.exports = faceCroppingServiceSharp;

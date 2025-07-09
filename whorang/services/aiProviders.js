@@ -62,19 +62,18 @@ class BaseAIProvider {
     
     // Also check for suspiciously similar patterns (round numbers that look like placeholders)
     const isSuspiciousPattern = (x, y, width, height) => {
-      // Check if coordinates are suspiciously round numbers that suggest placeholders
-      const roundNumbers = [x, y, width, height].filter(val => val % 5 === 0).length;
-      const veryRoundNumbers = [x, y, width, height].filter(val => val % 10 === 0).length;
+      // Only flag extremely suspicious patterns - be more permissive
+      const allRoundNumbers = [x, y, width, height].filter(val => val % 10 === 0).length;
       
-      // If all coordinates are multiples of 5, and most are multiples of 10, it's suspicious
-      if (roundNumbers === 4 && veryRoundNumbers >= 3) {
-        console.warn(`⚠️  Suspicious round number pattern: ${JSON.stringify({x, y, width, height})}`);
+      // Only reject if ALL coordinates are multiples of 10 (very suspicious)
+      if (allRoundNumbers === 4) {
+        console.warn(`⚠️  All coordinates are multiples of 10 (suspicious): ${JSON.stringify({x, y, width, height})}`);
         return true;
       }
       
-      // Check for common AI placeholder ranges
-      if (x >= 35 && x <= 45 && y >= 25 && y <= 40 && width >= 15 && width <= 25 && height >= 25 && height <= 35) {
-        console.warn(`⚠️  Coordinates match common AI placeholder range: ${JSON.stringify({x, y, width, height})}`);
+      // Check for very specific known problematic ranges (be more restrictive)
+      if (x === 40 && y >= 30 && y <= 35 && width === 20 && height === 30) {
+        console.warn(`⚠️  Coordinates match known OpenAI placeholder pattern: ${JSON.stringify({x, y, width, height})}`);
         return true;
       }
       
