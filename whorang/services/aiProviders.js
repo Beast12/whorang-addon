@@ -50,11 +50,10 @@ class BaseAIProvider {
     
     const { x, y, width, height } = bbox;
     
-    // Common default bounding boxes that indicate AI failure
+    // Only reject obviously wrong bounding boxes
     const defaultBoxes = [
       { x: 25, y: 25, width: 50, height: 50 },    // Center crop fallback
       { x: 0, y: 0, width: 100, height: 100 },    // Full image fallback
-      { x: 40, y: 30, width: 20, height: 30 },    // Suspicious repeated coordinates
       { x: 50, y: 50, width: 25, height: 25 },    // Another common fallback
     ];
     
@@ -67,12 +66,12 @@ class BaseAIProvider {
     }
     
     // Check for suspiciously small faces (likely errors)
-    if (width < 5 || height < 5) {
+    if (width < 3 || height < 3) {
       return true;
     }
     
     // Check for suspiciously large faces (likely errors)
-    if (width > 90 || height > 90) {
+    if (width > 95 || height > 95) {
       return true;
     }
     
