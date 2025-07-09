@@ -11,6 +11,73 @@ class BaseAIProvider {
   async generateFaceEncoding(imageUrl, faceData) {
     throw new Error('generateFaceEncoding method must be implemented');
   }
+
+  // Validate if bounding box coordinates are reasonable
+  isValidBoundingBox(bbox) {
+    if (!bbox || typeof bbox !== 'object') {
+      return false;
+    }
+    
+    const { x, y, width, height } = bbox;
+    
+    // Check if all required properties exist and are numbers
+    if (typeof x !== 'number' || typeof y !== 'number' || 
+        typeof width !== 'number' || typeof height !== 'number') {
+      return false;
+    }
+    
+    // Check for reasonable coordinate ranges
+    // For percentage coordinates (0-100)
+    if (x >= 0 && x <= 100 && y >= 0 && y <= 100 && 
+        width > 0 && width <= 100 && height > 0 && height <= 100) {
+      return true;
+    }
+    
+    // For normalized coordinates (0.0-1.0)
+    if (x >= 0 && x <= 1.0 && y >= 0 && y <= 1.0 && 
+        width > 0 && width <= 1.0 && height > 0 && height <= 1.0) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Detect if bounding box is a default/fallback value
+  isDefaultBoundingBox(bbox) {
+    if (!bbox || typeof bbox !== 'object') {
+      return true;
+    }
+    
+    const { x, y, width, height } = bbox;
+    
+    // Common default bounding boxes that indicate AI failure
+    const defaultBoxes = [
+      { x: 25, y: 25, width: 50, height: 50 },    // Center crop fallback
+      { x: 0, y: 0, width: 100, height: 100 },    // Full image fallback
+      { x: 40, y: 30, width: 20, height: 30 },    // Suspicious repeated coordinates
+      { x: 50, y: 50, width: 25, height: 25 },    // Another common fallback
+    ];
+    
+    // Check if coordinates match any known default patterns
+    for (const defaultBox of defaultBoxes) {
+      if (x === defaultBox.x && y === defaultBox.y && 
+          width === defaultBox.width && height === defaultBox.height) {
+        return true;
+      }
+    }
+    
+    // Check for suspiciously small faces (likely errors)
+    if (width < 5 || height < 5) {
+      return true;
+    }
+    
+    // Check for suspiciously large faces (likely errors)
+    if (width > 90 || height > 90) {
+      return true;
+    }
+    
+    return false;
+  }
 }
 
 class OpenAIVisionProvider extends BaseAIProvider {
@@ -280,17 +347,34 @@ If no faces are detected, set faces_detected to 0 and faces to empty array. Alwa
       parsed.faces = [];
     }
     
-    // Validate each face object
+    // Validate each face object with improved fallback detection
     parsed.faces = parsed.faces.map((face, index) => {
+      let boundingBox = face.bounding_box;
+      
+      // Detect and reject obviously wrong bounding boxes
+      if (!boundingBox || 
+          !this.isValidBoundingBox(boundingBox) ||
+          this.isDefaultBoundingBox(boundingBox)) {
+        
+        console.warn(`⚠️  Invalid or default bounding box detected for face ${index + 1}:`, boundingBox);
+        console.warn(`⚠️  AI provider failed to detect actual face location - skipping this face`);
+        
+        // Return null to indicate this face should be skipped
+        return null;
+      }
+      
       return {
         id: face.id || index + 1,
-        bounding_box: face.bounding_box || { x: 25, y: 25, width: 50, height: 50 },
+        bounding_box: boundingBox,
         confidence: Math.min(100, Math.max(0, face.confidence || 70)),
         description: face.description || 'Person detected',
         quality: face.quality || 'unknown',
         distinctive_features: Array.isArray(face.distinctive_features) ? face.distinctive_features : []
       };
-    });
+    }).filter(face => face !== null); // Remove invalid faces
+    
+    // Update faces_detected count after filtering
+    parsed.faces_detected = parsed.faces.length;
     
     // Validate objects_detected array
     if (!Array.isArray(parsed.objects_detected)) {
