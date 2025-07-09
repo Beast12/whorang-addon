@@ -108,12 +108,21 @@ class FaceCroppingService {
     console.log(`Image dimensions: ${image.width}x${image.height}`);
     console.log(`Pixel coordinates: x=${pixelX}, y=${pixelY}, w=${pixelWidth}, h=${pixelHeight}`);
     
-    // Add padding around the face (20% on each side)
-    const padding = 0.2;
-    const paddedWidth = Math.round(pixelWidth * (1 + padding * 2));
-    const paddedHeight = Math.round(pixelHeight * (1 + padding * 2));
-    const paddedX = Math.max(0, pixelX - Math.round(pixelWidth * padding));
-    const paddedY = Math.max(0, pixelY - Math.round(pixelHeight * padding));
+    // Optimized padding for tighter face crops (8% on each side)
+    // This focuses more on the face while keeping minimal context
+    const padding = 0.08;
+    
+    // For face crops, we want to be more conservative with vertical padding
+    // since faces are typically taller than they are wide
+    const horizontalPadding = padding;
+    const verticalPadding = padding * 0.6; // Less vertical padding to focus on face
+    
+    const paddedWidth = Math.round(pixelWidth * (1 + horizontalPadding * 2));
+    const paddedHeight = Math.round(pixelHeight * (1 + verticalPadding * 2));
+    const paddedX = Math.max(0, pixelX - Math.round(pixelWidth * horizontalPadding));
+    const paddedY = Math.max(0, pixelY - Math.round(pixelHeight * verticalPadding));
+    
+    console.log(`Optimized face crop padding: horizontal=${horizontalPadding}, vertical=${verticalPadding}`);
     
     // Ensure we don't go beyond image boundaries
     const finalWidth = Math.min(paddedWidth, image.width - paddedX);
