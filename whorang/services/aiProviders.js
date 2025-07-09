@@ -71,9 +71,9 @@ class BaseAIProvider {
         return true;
       }
       
-      // Check for very specific known problematic ranges (be more restrictive)
-      if (x === 40 && y >= 30 && y <= 35 && width === 20 && height === 30) {
-        console.warn(`⚠️  Coordinates match known OpenAI placeholder pattern: ${JSON.stringify({x, y, width, height})}`);
+      // Check for very specific known problematic ranges (including decimal variants)
+      if (x >= 38 && x <= 45 && y >= 30 && y <= 40 && width >= 10 && width <= 25 && height >= 15 && height <= 25) {
+        console.warn(`⚠️  Coordinates match known AI placeholder range (including decimal variants): ${JSON.stringify({x, y, width, height})}`);
         return true;
       }
       
