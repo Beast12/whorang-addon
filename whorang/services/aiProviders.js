@@ -50,28 +50,39 @@ class BaseAIProvider {
     
     const { x, y, width, height } = bbox;
     
-    // Only reject obviously wrong bounding boxes
+    // Known problematic default/placeholder bounding boxes that AI providers use
     const defaultBoxes = [
       { x: 25, y: 25, width: 50, height: 50 },    // Center crop fallback
       { x: 0, y: 0, width: 100, height: 100 },    // Full image fallback
+      { x: 40, y: 30, width: 20, height: 30 },    // OpenAI placeholder coordinates
       { x: 50, y: 50, width: 25, height: 25 },    // Another common fallback
+      { x: 30, y: 20, width: 40, height: 60 },    // Another placeholder pattern
     ];
     
-    // Check if coordinates match any known default patterns
+    // Check if coordinates match any known default patterns exactly
     for (const defaultBox of defaultBoxes) {
       if (x === defaultBox.x && y === defaultBox.y && 
           width === defaultBox.width && height === defaultBox.height) {
+        console.warn(`⚠️  Detected known placeholder bounding box: ${JSON.stringify(bbox)}`);
         return true;
       }
     }
     
     // Check for suspiciously small faces (likely errors)
     if (width < 3 || height < 3) {
+      console.warn(`⚠️  Face too small: width=${width}, height=${height}`);
       return true;
     }
     
     // Check for suspiciously large faces (likely errors)
     if (width > 95 || height > 95) {
+      console.warn(`⚠️  Face too large: width=${width}, height=${height}`);
+      return true;
+    }
+    
+    // Check for faces that are clearly outside image bounds
+    if (x < 0 || y < 0 || x + width > 100 || y + height > 100) {
+      console.warn(`⚠️  Face coordinates outside image bounds: ${JSON.stringify(bbox)}`);
       return true;
     }
     
