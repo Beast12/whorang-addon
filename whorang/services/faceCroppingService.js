@@ -80,11 +80,33 @@ class FaceCroppingService {
   async cropFaceFromImage(image, boundingBox, faceId) {
     const { x, y, width, height } = boundingBox;
     
-    // Convert percentage coordinates to pixels
-    const pixelX = Math.round((x / 100) * image.width);
-    const pixelY = Math.round((y / 100) * image.height);
-    const pixelWidth = Math.round((width / 100) * image.width);
-    const pixelHeight = Math.round((height / 100) * image.height);
+    // Auto-detect coordinate format and normalize to 0-1 range
+    let normalizedX, normalizedY, normalizedWidth, normalizedHeight;
+    
+    if (x <= 1.0 && y <= 1.0 && width <= 1.0 && height <= 1.0) {
+      // Already normalized coordinates (0.0 - 1.0)
+      normalizedX = x;
+      normalizedY = y;
+      normalizedWidth = width;
+      normalizedHeight = height;
+      console.log(`Using normalized coordinates: x=${x}, y=${y}, w=${width}, h=${height}`);
+    } else {
+      // Percentage coordinates (0 - 100), convert to normalized
+      normalizedX = x / 100;
+      normalizedY = y / 100;
+      normalizedWidth = width / 100;
+      normalizedHeight = height / 100;
+      console.log(`Converting percentage coordinates: x=${x}% -> ${normalizedX}, y=${y}% -> ${normalizedY}, w=${width}% -> ${normalizedWidth}, h=${height}% -> ${normalizedHeight}`);
+    }
+    
+    // Convert normalized coordinates to pixels
+    const pixelX = Math.round(normalizedX * image.width);
+    const pixelY = Math.round(normalizedY * image.height);
+    const pixelWidth = Math.round(normalizedWidth * image.width);
+    const pixelHeight = Math.round(normalizedHeight * image.height);
+    
+    console.log(`Image dimensions: ${image.width}x${image.height}`);
+    console.log(`Pixel coordinates: x=${pixelX}, y=${pixelY}, w=${pixelWidth}, h=${pixelHeight}`);
     
     // Add padding around the face (20% on each side)
     const padding = 0.2;
@@ -172,8 +194,27 @@ class FaceCroppingService {
   calculateFaceQuality(face, imageWidth, imageHeight) {
     let qualityScore = 0.5; // Base score
     
+    const { x, y, width, height } = face.bounding_box;
+    
+    // Normalize coordinates to 0-1 range for consistent calculations
+    let normalizedX, normalizedY, normalizedWidth, normalizedHeight;
+    
+    if (x <= 1.0 && y <= 1.0 && width <= 1.0 && height <= 1.0) {
+      // Already normalized coordinates (0.0 - 1.0)
+      normalizedX = x;
+      normalizedY = y;
+      normalizedWidth = width;
+      normalizedHeight = height;
+    } else {
+      // Percentage coordinates (0 - 100), convert to normalized
+      normalizedX = x / 100;
+      normalizedY = y / 100;
+      normalizedWidth = width / 100;
+      normalizedHeight = height / 100;
+    }
+    
     // Size factor - larger faces are generally better quality
-    const faceArea = (face.bounding_box.width / 100) * (face.bounding_box.height / 100);
+    const faceArea = normalizedWidth * normalizedHeight;
     const sizeScore = Math.min(faceArea * 10, 1); // Normalize to 0-1
     qualityScore += sizeScore * 0.3;
     
@@ -182,15 +223,15 @@ class FaceCroppingService {
     qualityScore += confidenceScore * 0.4;
     
     // Position factor - faces in center are often better quality
-    const centerX = 50;
-    const centerY = 50;
-    const faceX = face.bounding_box.x + (face.bounding_box.width / 2);
-    const faceY = face.bounding_box.y + (face.bounding_box.height / 2);
+    const centerX = 0.5; // Center in normalized coordinates
+    const centerY = 0.5;
+    const faceX = normalizedX + (normalizedWidth / 2);
+    const faceY = normalizedY + (normalizedHeight / 2);
     
     const distanceFromCenter = Math.sqrt(
       Math.pow(faceX - centerX, 2) + Math.pow(faceY - centerY, 2)
     );
-    const positionScore = Math.max(0, 1 - (distanceFromCenter / 50));
+    const positionScore = Math.max(0, 1 - (distanceFromCenter / 0.5)); // Max distance is 0.5 in normalized coords
     qualityScore += positionScore * 0.2;
     
     // Quality indicators from face description
