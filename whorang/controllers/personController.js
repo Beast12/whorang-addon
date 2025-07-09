@@ -1,5 +1,7 @@
 
 const { getDatabase } = require('../config/database');
+const path = require('path');
+const fs = require('fs');
 
 class PersonController {
   // Get all persons
@@ -127,6 +129,55 @@ class PersonController {
     } catch (err) {
       console.error('Error deleting person:', err);
       res.status(500).json({ error: err.message });
+    }
+  }
+
+  // Get person avatar (best quality face image)
+  static getPersonAvatar(req, res) {
+    const db = getDatabase();
+    const personId = req.params.id;
+    
+    try {
+      // Get the best quality face for this person
+      const faceStmt = db.prepare(`
+        SELECT face_crop_path, thumbnail_path, quality_score
+        FROM detected_faces 
+        WHERE person_id = ? 
+        ORDER BY quality_score DESC, created_at DESC 
+        LIMIT 1
+      `);
+      
+      const face = faceStmt.get(personId);
+      
+      if (!face || !face.face_crop_path) {
+        // Return a default avatar or 404
+        return res.status(404).json({ error: 'No avatar available for this person' });
+      }
+      
+      const imagePath = path.resolve(face.face_crop_path);
+      
+      if (!fs.existsSync(imagePath)) {
+        return res.status(404).json({ error: 'Avatar image file not found' });
+      }
+      
+      // Set appropriate headers
+      const mimeType = 'image/jpeg';
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      
+      // Stream the image
+      const imageStream = fs.createReadStream(imagePath);
+      imageStream.on('error', (error) => {
+        console.error('Error streaming avatar:', error);
+        res.status(500).json({ error: 'Failed to stream avatar' });
+      });
+      
+      imageStream.pipe(res);
+      
+    } catch (error) {
+      console.error('Error getting person avatar:', error);
+      res.status(500).json({ error: 'Failed to get person avatar' });
     }
   }
 }
