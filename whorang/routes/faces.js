@@ -60,9 +60,18 @@ router.get('/:faceId/image', async (req, res) => {
       return res.status(404).json({ error: 'Face image not found' });
     }
     
-    const fullImagePath = path.resolve(imagePath);
+    // Handle both absolute and relative paths
+    let fullImagePath;
+    if (path.isAbsolute(imagePath)) {
+      // If it's an absolute path starting with /, treat it as relative to working directory
+      fullImagePath = path.join(process.cwd(), imagePath.substring(1));
+    } else {
+      // If it's already relative, resolve from working directory
+      fullImagePath = path.resolve(imagePath);
+    }
     
     if (!fs.existsSync(fullImagePath)) {
+      console.error(`Face image not found: ${fullImagePath} (original path: ${imagePath})`);
       return res.status(404).json({ error: 'Image file not found on disk' });
     }
     
