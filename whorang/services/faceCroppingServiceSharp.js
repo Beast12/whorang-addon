@@ -225,8 +225,12 @@ class FaceCroppingServiceSharp {
     const filename = `thumb_${faceId}.jpg`;
     const filepath = path.join(this.thumbnailsDir, filename);
     
-    // Get the full path to the face crop
-    const fullFaceCropPath = path.join(__dirname, '..', faceCropPath);
+    // FIXED: Resolve the face crop path correctly
+    // faceCropPath is a URL like "/data/uploads/faces/filename.jpg"
+    // We need to convert it to the actual file system path
+    const fullFaceCropPath = uploadPaths.resolveUploadPath(faceCropPath);
+    
+    console.log(`Sharp: Generating thumbnail from: ${fullFaceCropPath}`);
     
     // Generate thumbnail with Sharp
     await sharp(fullFaceCropPath)
@@ -521,8 +525,8 @@ class FaceCroppingServiceSharp {
    * Resolve image path from URL - supports both local files and remote URLs
    */
   async resolveImagePath(imageUrl) {
-    if (imageUrl.startsWith('/uploads/')) {
-      return path.join(__dirname, '..', imageUrl);
+    if (uploadPaths.isUploadPath(imageUrl)) {
+      return uploadPaths.resolveUploadPath(imageUrl);
     } else if (imageUrl.startsWith('http')) {
       // Download remote image and return local path
       return await this.downloadRemoteImage(imageUrl);
