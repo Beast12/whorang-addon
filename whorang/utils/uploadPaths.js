@@ -70,9 +70,15 @@ class UploadPaths {
    */
   resolveUploadPath(uploadUrl) {
     if (uploadUrl.startsWith(`/${this.baseUploadPath}/`)) {
-      return path.join(__dirname, '..', uploadUrl);
+      // For absolute paths like "/data/uploads/faces/file.jpg", return as-is
+      // since they're already absolute file system paths
+      return uploadUrl;
     } else if (uploadUrl.startsWith(`./${this.baseUploadPath}/`)) {
+      // For relative paths like "./uploads/faces/file.jpg", resolve relative to app directory
       return path.join(__dirname, '..', uploadUrl.substring(2));
+    } else if (uploadUrl.startsWith(`uploads/`)) {
+      // For legacy "uploads/" paths, resolve relative to app directory
+      return path.join(__dirname, '..', uploadUrl);
     }
     return uploadUrl;
   }
