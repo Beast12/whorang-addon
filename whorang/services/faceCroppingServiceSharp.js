@@ -17,9 +17,51 @@ class FaceCroppingServiceSharp {
       await fs.mkdir(this.uploadsDir, { recursive: true });
       await fs.mkdir(this.facesDir, { recursive: true });
       await fs.mkdir(this.thumbnailsDir, { recursive: true });
-      console.log('Sharp face cropping directories ensured');
+      
+      // Verify directories were created and are writable
+      await this.validateDirectories();
+      
+      console.log('Sharp face cropping directories ensured and validated');
     } catch (error) {
-      console.error('Error creating Sharp face cropping directories:', error);
+      console.error('CRITICAL ERROR: Failed to create Sharp face cropping directories:', error);
+      throw error; // Re-throw to prevent silent failures
+    }
+  }
+
+  async validateDirectories() {
+    const directories = [
+      { path: this.uploadsDir, name: 'uploads' },
+      { path: this.facesDir, name: 'faces' },
+      { path: this.thumbnailsDir, name: 'thumbnails' }
+    ];
+
+    for (const dir of directories) {
+      try {
+        // Check if directory exists and is accessible
+        const stats = await fs.stat(dir.path);
+        if (!stats.isDirectory()) {
+          throw new Error(`${dir.name} path exists but is not a directory: ${dir.path}`);
+        }
+        
+        // Test write permissions by creating a temporary file
+        const testFile = path.join(dir.path, '.write_test');
+        try {
+          await fs.writeFile(testFile, 'test');
+          await fs.unlink(testFile);
+        } catch (writeError) {
+          // If write test fails, the directory might not exist or have wrong permissions
+          console.warn(`Sharp: Write test failed for ${dir.name}, attempting to recreate directory`);
+          await fs.mkdir(dir.path, { recursive: true });
+          // Try write test again
+          await fs.writeFile(testFile, 'test');
+          await fs.unlink(testFile);
+        }
+        
+        console.log(`Sharp: Directory validated: ${dir.name} (${dir.path})`);
+      } catch (error) {
+        console.error(`Sharp: Directory validation failed for ${dir.name}: ${error.message}`);
+        throw new Error(`Cannot access or write to ${dir.name} directory: ${dir.path}`);
+      }
     }
   }
 
@@ -84,15 +126,17 @@ class FaceCroppingServiceSharp {
   async cropFaceWithSharp(imagePath, boundingBox, faceId, metadata) {
     const { x, y, width, height } = boundingBox;
     
-    console.log(`Sharp: Processing bounding box: x=${x}%, y=${y}%, w=${width}%, h=${height}%`);
+    console.log(`Sharp: Processing bounding box: x=${x}, y=${y}, w=${width}, h=${height}`);
+    console.log(`Sharp: Image dimensions: ${metadata.width}x${metadata.height}`);
     
-    // Convert from percentage to pixels
-    const cropX = Math.round((x / 100) * metadata.width);
-    const cropY = Math.round((y / 100) * metadata.height);
-    const cropWidth = Math.round((width / 100) * metadata.width);
-    const cropHeight = Math.round((height / 100) * metadata.height);
+    // FIXED: Detect coordinate format and convert properly
+    const normalizedCoords = this.normalizeCoordinates(boundingBox, metadata.width, metadata.height);
+    const cropX = Math.round(normalizedCoords.x);
+    const cropY = Math.round(normalizedCoords.y);
+    const cropWidth = Math.round(normalizedCoords.width);
+    const cropHeight = Math.round(normalizedCoords.height);
     
-    console.log(`Sharp: Pixel coordinates: x=${cropX}, y=${cropY}, w=${cropWidth}, h=${cropHeight}`);
+    console.log(`Sharp: Normalized pixel coordinates: x=${cropX}, y=${cropY}, w=${cropWidth}, h=${cropHeight}`);
     
     // Validate crop boundaries
     const finalX = Math.max(0, Math.min(cropX, metadata.width - 1));
@@ -131,11 +175,41 @@ class FaceCroppingServiceSharp {
       .jpeg({ quality: 90 })
       .toFile(filepath);
     
+    // CRITICAL: Validate that the file was actually created
+    await this.validateFileCreation(filepath, filename);
+    
     return {
       path: `/uploads/faces/${filename}`,
       filename,
       dimensions: { width: paddedWidth, height: paddedHeight }
     };
+  }
+
+  /**
+   * Validate that a file was actually created and has reasonable content
+   */
+  async validateFileCreation(filepath, filename) {
+    try {
+      const stats = await fs.stat(filepath);
+      
+      if (!stats.isFile()) {
+        throw new Error(`Created path is not a file: ${filepath}`);
+      }
+      
+      if (stats.size === 0) {
+        throw new Error(`Created file is empty: ${filename}`);
+      }
+      
+      if (stats.size < 100) {
+        console.warn(`Sharp: WARNING - Created file very small (${stats.size} bytes): ${filename}`);
+      }
+      
+      console.log(`Sharp: File validation successful: ${filename} (${stats.size} bytes)`);
+      
+    } catch (error) {
+      console.error(`Sharp: CRITICAL - File validation failed for ${filename}:`, error);
+      throw new Error(`Face crop file creation failed: ${error.message}`);
+    }
   }
 
   /**
@@ -160,11 +234,112 @@ class FaceCroppingServiceSharp {
       .jpeg({ quality: 80 })
       .toFile(filepath);
     
+    // Validate thumbnail creation
+    await this.validateFileCreation(filepath, filename);
+    
     return {
       path: `/uploads/thumbnails/${filename}`,
       filename,
       size: thumbnailSize
     };
+  }
+
+  /**
+   * FIXED: Normalize coordinates from different formats to pixel coordinates
+   * Handles both normalized (0.0-1.0) and percentage (0-100) coordinate formats
+   * CRITICAL FIX: Detects when coordinates represent center+size vs top-left+size
+   */
+  normalizeCoordinates(boundingBox, imageWidth, imageHeight) {
+    const { x, y, width, height } = boundingBox;
+    
+    console.log(`Sharp: Analyzing coordinates: x=${x}, y=${y}, w=${width}, h=${height}`);
+    console.log(`Sharp: Image dimensions: ${imageWidth}x${imageHeight}`);
+    
+    // Detect coordinate format based on values
+    let pixelCoords;
+    
+    // Check if coordinates are normalized (0.0-1.0)
+    if (x <= 1.0 && y <= 1.0 && width <= 1.0 && height <= 1.0 && 
+        (x > 0 || y > 0 || width > 0 || height > 0)) {
+      
+      console.log(`Sharp: Detected normalized coordinates (0.0-1.0)`);
+      
+      // CRITICAL FIX: Check if these are center-based coordinates
+      // Many AI models return center coordinates, not top-left
+      const centerX = x * imageWidth;
+      const centerY = y * imageHeight;
+      const faceWidth = width * imageWidth;
+      const faceHeight = height * imageHeight;
+      
+      // Check if treating as center coordinates would make more sense
+      const leftFromCenter = centerX - (faceWidth / 2);
+      const topFromCenter = centerY - (faceHeight / 2);
+      const rightFromCenter = centerX + (faceWidth / 2);
+      const bottomFromCenter = centerY + (faceHeight / 2);
+      
+      // If center-based coordinates fit better within image bounds, use them
+      if (leftFromCenter >= 0 && topFromCenter >= 0 && 
+          rightFromCenter <= imageWidth && bottomFromCenter <= imageHeight) {
+        
+        console.log(`Sharp: Coordinates appear to be CENTER-based, converting...`);
+        pixelCoords = {
+          x: leftFromCenter,
+          y: topFromCenter,
+          width: faceWidth,
+          height: faceHeight
+        };
+        
+      } else {
+        // Use as top-left coordinates
+        console.log(`Sharp: Using as TOP-LEFT coordinates`);
+        pixelCoords = {
+          x: centerX,
+          y: centerY,
+          width: faceWidth,
+          height: faceHeight
+        };
+      }
+      
+    } else if (x <= 100 && y <= 100 && width <= 100 && height <= 100) {
+      // Percentage coordinates (0-100)
+      console.log(`Sharp: Detected percentage coordinates (0-100)`);
+      pixelCoords = {
+        x: (x / 100) * imageWidth,
+        y: (y / 100) * imageHeight,
+        width: (width / 100) * imageWidth,
+        height: (height / 100) * imageHeight
+      };
+      
+    } else {
+      // Assume pixel coordinates (though this is unusual for AI providers)
+      console.log(`Sharp: Assuming pixel coordinates`);
+      pixelCoords = { x, y, width, height };
+    }
+    
+    // Validate and clamp the resulting coordinates
+    pixelCoords.x = Math.max(0, pixelCoords.x);
+    pixelCoords.y = Math.max(0, pixelCoords.y);
+    pixelCoords.width = Math.min(pixelCoords.width, imageWidth - pixelCoords.x);
+    pixelCoords.height = Math.min(pixelCoords.height, imageHeight - pixelCoords.y);
+    
+    // Final validation
+    if (pixelCoords.width < 10 || pixelCoords.height < 10) {
+      console.warn(`Sharp: WARNING - Face crop very small: ${pixelCoords.width}x${pixelCoords.height}px`);
+      console.warn(`Sharp: Original coordinates: x=${x}, y=${y}, w=${width}, h=${height}`);
+      console.warn(`Sharp: This may indicate coordinate format misinterpretation`);
+    }
+    
+    if (pixelCoords.x + pixelCoords.width > imageWidth || 
+        pixelCoords.y + pixelCoords.height > imageHeight) {
+      console.warn(`Sharp: WARNING - Face crop still extends beyond image bounds after clamping`);
+      console.warn(`Sharp: Crop: ${pixelCoords.x + pixelCoords.width}x${pixelCoords.y + pixelCoords.height}, Image: ${imageWidth}x${imageHeight}`);
+    } else {
+      console.log(`Sharp: ✅ Coordinates are within image bounds`);
+    }
+    
+    console.log(`Sharp: Final coordinates: (${Math.round(pixelCoords.x)},${Math.round(pixelCoords.y)},${Math.round(pixelCoords.width)},${Math.round(pixelCoords.height)})`);
+    
+    return pixelCoords;
   }
 
   /**
