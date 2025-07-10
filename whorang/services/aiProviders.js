@@ -1167,7 +1167,7 @@ If you see no faces, set faces_detected to 0 and faces to empty array. Always an
       
     } catch (error) {
       console.warn('❌ Could not fix truncated JSON:', error.message);
-      console.warn('Fixed JSON was:', fixed.substring(fixed.length - 100)); // Show last 100 chars
+      console.warn('Fixed JSON was:', fixed ? fixed.substring(Math.max(0, fixed.length - 100)) : 'undefined'); // Show last 100 chars
       return null;
     }
   }

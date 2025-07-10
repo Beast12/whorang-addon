@@ -132,7 +132,7 @@ class OllamaFaceCroppingFix {
   }
 
   /**
-   * Tighten loose bounding boxes to focus more on the face
+   * Tighten loose bounding boxes to focus more on the face with intelligent centering
    */
   tightenBoundingBox(bbox, faceInfo = {}) {
     const { x, y, width, height } = bbox;
@@ -162,19 +162,54 @@ class OllamaFaceCroppingFix {
     const newWidth = width * tighteningFactor;
     const newHeight = height * tighteningFactor;
 
-    // Center the tightened box
-    const newX = x + (width - newWidth) / 2;
-    const newY = y + (height - newHeight) / 2;
+    // ENHANCED: Intelligent centering with edge detection
+    let newX = x + (width - newWidth) / 2;
+    let newY = y + (height - newHeight) / 2;
+
+    // Check if the face is too close to edges and adjust for better centering
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+    
+    // If face center is off-center, bias the crop towards center of image
+    const imageCenter = 0.5; // 50% of image
+    const centeringThreshold = 0.25; // Apply centering if face is more than 25% away from center
+    
+    // Calculate distance from image center
+    const distanceFromCenterX = Math.abs(centerX - imageCenter);
+    const distanceFromCenterY = Math.abs(centerY - imageCenter);
+    
+    // Horizontal centering adjustment
+    if (distanceFromCenterX > centeringThreshold) {
+      console.log(`🎯 Face off-center horizontally (${(centerX*100).toFixed(1)}% vs 50%), applying centering bias`);
+      // Bias towards image center while keeping face in frame
+      const biasFactor = 0.4; // 40% bias towards center
+      const targetX = centerX + (imageCenter - centerX) * biasFactor;
+      newX = targetX - newWidth / 2;
+    }
+    
+    // Vertical centering adjustment  
+    if (distanceFromCenterY > centeringThreshold) {
+      console.log(`🎯 Face off-center vertically (${(centerY*100).toFixed(1)}% vs 50%), applying centering bias`);
+      // Bias towards image center while keeping face in frame
+      const biasFactor = 0.4; // 40% bias towards center
+      const targetY = centerY + (imageCenter - centerY) * biasFactor;
+      newY = targetY - newHeight / 2;
+    }
+
+    // Ensure the crop stays within image bounds
+    newX = Math.max(0, Math.min(newX, 1 - newWidth));
+    newY = Math.max(0, Math.min(newY, 1 - newHeight));
 
     const tightened = {
-      x: Math.max(0, newX),
-      y: Math.max(0, newY),
-      width: Math.min(newWidth, 100 - newX),
-      height: Math.min(newHeight, 100 - newY)
+      x: newX,
+      y: newY,
+      width: newWidth,
+      height: newHeight
     };
 
     if (this.debugMode) {
-      console.log(`Tightening: ${JSON.stringify(bbox)} -> ${JSON.stringify(tightened)} (factor: ${tighteningFactor})`);
+      console.log(`Tightening with centering: ${JSON.stringify(bbox)} -> ${JSON.stringify(tightened)} (factor: ${tighteningFactor})`);
+      console.log(`Face center: (${(centerX*100).toFixed(1)}%, ${(centerY*100).toFixed(1)}%) -> Crop center: (${((newX + newWidth/2)*100).toFixed(1)}%, ${((newY + newHeight/2)*100).toFixed(1)}%)`);
     }
 
     return tightened;
