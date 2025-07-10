@@ -71,17 +71,44 @@ class FaceProcessingService {
       if (analysisResults.faces_detected > 0) {
         console.log(`Found ${analysisResults.faces_detected} faces in event ${eventId}`);
         
+        // SAFETY NET: Apply additional deduplication check before processing
+        // This ensures no duplicates slip through from any AI provider
+        let facesToProcess = analysisResults.faces;
+        if (facesToProcess.length > 1) {
+          console.log(`🔍 Face Processing: Double-checking for duplicates in ${facesToProcess.length} faces...`);
+          
+          const faceDeduplicationService = require('./faceDeduplication');
+          const originalCount = facesToProcess.length;
+          facesToProcess = faceDeduplicationService.deduplicateFaces(facesToProcess);
+          
+          if (originalCount !== facesToProcess.length) {
+            console.log(`🎯 Face Processing: Additional deduplication removed ${originalCount - facesToProcess.length} duplicates`);
+            
+            // Update the analysis results to reflect the final deduplicated count
+            analysisResults.faces = facesToProcess;
+            analysisResults.faces_detected = facesToProcess.length;
+            
+            // Update the database record with the corrected count
+            const updateEventStmt2 = db.prepare(`
+              UPDATE doorbell_events 
+              SET faces_detected = ?
+              WHERE id = ?
+            `);
+            updateEventStmt2.run(analysisResults.faces_detected, eventId);
+          }
+        }
+        
         // Extract face crops from the image with AI provider context
         const faceCrops = await faceCroppingService.extractFaceCrops(
           imageUrl, 
-          analysisResults.faces, 
+          facesToProcess, 
           eventId,
           config.ai_provider // Pass AI provider for coordinate correction
         );
         
-        // Process each detected face
-        for (let i = 0; i < analysisResults.faces.length; i++) {
-          const face = analysisResults.faces[i];
+        // Process each detected face (now guaranteed to be deduplicated)
+        for (let i = 0; i < facesToProcess.length; i++) {
+          const face = facesToProcess[i];
           const faceCrop = faceCrops[i];
           
           if (!faceCrop) {
