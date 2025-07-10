@@ -1001,8 +1001,26 @@ If you see no faces, set faces_detected to 0 and faces to empty array. Always an
         };
       }
       
-      const jsonStr = jsonMatch[0];
-      const parsed = JSON.parse(jsonStr);
+      let jsonStr = jsonMatch[0];
+      let parsed;
+      
+      // Try to parse JSON, if it fails due to truncation, attempt to fix it
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch (parseError) {
+        console.warn('⚠️  JSON parsing failed, attempting to fix truncated response...');
+        console.warn('Parse error:', parseError.message);
+        
+        // Attempt to fix common truncation issues
+        const fixedJson = this.fixTruncatedJson(jsonStr);
+        if (fixedJson) {
+          console.log('✅ Successfully fixed truncated JSON');
+          parsed = JSON.parse(fixedJson);
+        } else {
+          console.error('❌ Could not fix truncated JSON, using fallback');
+          throw parseError;
+        }
+      }
       
       // Validate the response structure
       if (typeof parsed.faces_detected !== 'number') {
@@ -1081,6 +1099,52 @@ If you see no faces, set faces_detected to 0 and faces to empty array. Always an
           image_quality: 'unknown'
         }
       };
+    }
+  }
+
+  /**
+   * Attempt to fix truncated JSON responses from Ollama
+   */
+  fixTruncatedJson(jsonStr) {
+    try {
+      // Common truncation patterns and fixes
+      let fixed = jsonStr.trim();
+      
+      // If JSON ends abruptly without closing braces, try to complete it
+      if (!fixed.endsWith('}')) {
+        console.log('🔧 JSON missing closing braces, attempting to complete...');
+        
+        // Count open vs closed braces to determine how many we need
+        const openBraces = (fixed.match(/\{/g) || []).length;
+        const closeBraces = (fixed.match(/\}/g) || []).length;
+        const missingBraces = openBraces - closeBraces;
+        
+        if (missingBraces > 0) {
+          // Add missing closing braces
+          fixed += '}' + '}'.repeat(missingBraces - 1);
+          console.log(`Added ${missingBraces} missing closing braces`);
+        }
+      }
+      
+      // If JSON ends with incomplete string, try to close it
+      if (fixed.match(/[^"\\]"[^"]*$/)) {
+        console.log('🔧 JSON has incomplete string, attempting to close...');
+        fixed += '"';
+      }
+      
+      // If JSON ends with incomplete array, try to close it
+      if (fixed.match(/,\s*$/)) {
+        console.log('🔧 JSON ends with trailing comma, removing...');
+        fixed = fixed.replace(/,\s*$/, '');
+      }
+      
+      // Try to parse the fixed JSON
+      JSON.parse(fixed);
+      return fixed;
+      
+    } catch (error) {
+      console.warn('Could not fix truncated JSON:', error.message);
+      return null;
     }
   }
 
