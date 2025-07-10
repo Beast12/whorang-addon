@@ -203,20 +203,9 @@ class AnalysisController {
         visitor.id
       );
       
-      // Process faces if detected
-      if (analysisResults.faces_detected > 0 && analysisResults.faces) {
-        console.log(`Processing ${analysisResults.faces_detected} faces for visitor ${visitor.id}`);
-        
-        try {
-          await faceProcessing.processVisitorEvent(
-            visitor.id,
-            visitor.image_url
-          );
-        } catch (faceError) {
-          console.error(`Face processing failed for visitor ${visitor.id}:`, faceError);
-          // Continue even if face processing fails
-        }
-      }
+      // REMOVED: Face processing is already handled by the webhook handler
+      // to prevent duplicate processing of the same event
+      console.log(`Face processing for visitor ${visitor.id} is handled separately by webhook handler`);
       
       // Send WebSocket notification about analysis completion
       const WebSocketHandler = require('../websocket/handler');

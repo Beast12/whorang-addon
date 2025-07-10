@@ -28,6 +28,15 @@ class FaceProcessingService {
     const db = require('../config/database').getDatabase();
     
     try {
+      // CRITICAL FIX: Check if this event has already been processed to prevent duplicates
+      const existingEventStmt = db.prepare('SELECT faces_processed FROM doorbell_events WHERE id = ?');
+      const existingEvent = existingEventStmt.get(eventId);
+      
+      if (existingEvent && existingEvent.faces_processed === 1) {
+        console.log(`🚫 Event ${eventId} already processed, skipping to prevent duplicates`);
+        return;
+      }
+      
       // Get face recognition config
       const configStmt = db.prepare('SELECT * FROM face_recognition_config LIMIT 1');
       const config = configStmt.get();
