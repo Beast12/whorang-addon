@@ -1166,6 +1166,168 @@ If you see no faces, set faces_detected to 0 and faces to empty array. Always an
       return crypto.createHash('sha256').update(imageUrl + JSON.stringify(faceData)).digest('hex');
     }
   }
+
+  // Static method to get available Ollama models with vision capability filtering
+  static async getAvailableModels(ollamaUrl = 'http://localhost:11434', useCache = true) {
+    try {
+      // Check cache first if enabled
+      if (useCache) {
+        const cachedModels = await OpenAIVisionProvider.getCachedModels('ollama');
+        if (cachedModels && cachedModels.length > 0) {
+          console.log('Using cached Ollama models');
+          return cachedModels;
+        }
+      }
+
+      console.log(`Fetching fresh Ollama models from ${ollamaUrl}...`);
+      
+      // Fetch models from Ollama API
+      const response = await LocalOllamaProvider.makeHttpRequest(`${ollamaUrl}/api/tags`, {
+        method: 'GET',
+        timeout: 10000 // 10 second timeout
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Unable to fetch models from Ollama at ${ollamaUrl}`);
+      }
+
+      const data = response.data;
+      
+      // Enhanced filtering for vision-capable models
+      const visionModels = (data.models || []).filter(model => {
+        const name = model.name.toLowerCase();
+        
+        // Include models that are known to support vision
+        const visionKeywords = [
+          'llava',           // LLaVA models
+          'vision',          // Any model with "vision" in name
+          'cogvlm',          // CogVLM models
+          'bakllava',        // BakLLaVA models
+          'llama-vision',    // Llama Vision models
+          'gemma3',          // Gemma 3 models (multimodal)
+          'gemma2',          // Gemma 2 models (some are multimodal)
+          'minicpm',         // MiniCPM-V models
+          'internvl',        // InternVL models
+          'qwen-vl',         // Qwen-VL models
+          'yi-vl'            // Yi-VL models
+        ];
+        
+        return visionKeywords.some(keyword => name.includes(keyword));
+      });
+
+      // Sort by preference (LLaVA models first, then by name)
+      visionModels.sort((a, b) => {
+        const aIsLlava = a.name.toLowerCase().includes('llava');
+        const bIsLlava = b.name.toLowerCase().includes('llava');
+        
+        if (aIsLlava && !bIsLlava) return -1;
+        if (!aIsLlava && bIsLlava) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      const formattedModels = visionModels.map(model => ({
+        value: model.name,
+        label: this.formatOllamaModelLabel(model.name),
+        size: model.size,
+        modified_at: model.modified_at,
+        digest: model.digest,
+        is_vision: true,
+        recommended: model.name.toLowerCase().includes('llava')
+      }));
+
+      // Cache the results
+      if (useCache && formattedModels.length > 0) {
+        await OpenAIVisionProvider.cacheModels('ollama', formattedModels);
+      }
+
+      console.log(`Found ${formattedModels.length} vision-capable Ollama models`);
+      return formattedModels;
+
+    } catch (error) {
+      console.error('Error fetching Ollama models:', error);
+      
+      // Return enhanced fallback models including common vision models
+      const fallbackModels = [
+        { value: 'llava:latest', label: 'LLaVA Latest (Recommended)', recommended: true, is_vision: true },
+        { value: 'llava:7b', label: 'LLaVA 7B', recommended: false, is_vision: true },
+        { value: 'llava:13b', label: 'LLaVA 13B', recommended: false, is_vision: true },
+        { value: 'llava-phi3:latest', label: 'LLaVA Phi3 Latest', recommended: true, is_vision: true },
+        { value: 'bakllava:latest', label: 'BakLLaVA Latest', recommended: false, is_vision: true },
+        { value: 'cogvlm:latest', label: 'CogVLM Latest', recommended: false, is_vision: true },
+        { value: 'gemma3:1b', label: 'Gemma 3 1B (Multimodal)', recommended: false, is_vision: true },
+        { value: 'gemma2:2b', label: 'Gemma 2 2B', recommended: false, is_vision: true }
+      ];
+      
+      console.log('Using fallback Ollama models due to API error');
+      return fallbackModels;
+    }
+  }
+
+  // Helper method to format Ollama model labels
+  static formatOllamaModelLabel(modelName) {
+    // Extract base name and size/variant
+    const parts = modelName.split(':');
+    const baseName = parts[0];
+    const variant = parts[1] || 'latest';
+    
+    // Create user-friendly labels
+    const labelMap = {
+      'llava': 'LLaVA',
+      'llava-phi3': 'LLaVA Phi3',
+      'bakllava': 'BakLLaVA',
+      'cogvlm': 'CogVLM',
+      'gemma3': 'Gemma 3',
+      'gemma2': 'Gemma 2',
+      'minicpm': 'MiniCPM-V',
+      'internvl': 'InternVL',
+      'qwen-vl': 'Qwen-VL',
+      'yi-vl': 'Yi-VL'
+    };
+    
+    const friendlyName = labelMap[baseName] || baseName.toUpperCase();
+    
+    if (variant === 'latest') {
+      return `${friendlyName} Latest`;
+    } else {
+      return `${friendlyName} ${variant.toUpperCase()}`;
+    }
+  }
+
+  // Test Ollama connection
+  static async testConnection(ollamaUrl = 'http://localhost:11434') {
+    try {
+      const response = await LocalOllamaProvider.makeHttpRequest(`${ollamaUrl}/api/tags`, {
+        method: 'GET',
+        timeout: 5000
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Unable to connect to Ollama`);
+      }
+
+      const data = response.data;
+      const modelCount = data.models ? data.models.length : 0;
+
+      return {
+        success: true,
+        message: `Ollama connection successful. Found ${modelCount} models.`,
+        models_available: modelCount > 0,
+        ollama_url: ollamaUrl
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Ollama connection failed: ${error.message}`,
+        ollama_url: ollamaUrl,
+        suggestions: [
+          'Verify Ollama is running and accessible',
+          'Check if the Ollama URL is correct',
+          'Ensure Ollama API is enabled',
+          'Try restarting the Ollama service'
+        ]
+      };
+    }
+  }
 }
 
 class GoogleGeminiProvider extends BaseAIProvider {

@@ -439,16 +439,49 @@ class OpenAIController {
         });
       }
 
-      // For local provider, try to get dynamic models from Ollama
+      // For local provider, get dynamic models from Ollama
       if (provider === 'local') {
-        // TODO: Implement Ollama model fetching
-        // For now, return default local models
-        res.json({
-          data: defaultModels[provider],
-          provider: provider,
-          total: defaultModels[provider].length
-        });
-        return;
+        try {
+          // Get Ollama configuration from database
+          const db = require('../config/database').getDatabase();
+          const configStmt = db.prepare('SELECT ollama_url FROM face_recognition_config LIMIT 1');
+          const config = configStmt.get();
+          
+          const ollamaUrl = config?.ollama_url || 'http://192.168.86.163:11434'; // Use your Ollama URL
+          
+          console.log(`Fetching Ollama models from: ${ollamaUrl}`);
+          
+          // Import the LocalOllamaProvider
+          const { LocalOllamaProvider } = require('../services/aiProviders');
+          
+          // Get models from Ollama API
+          const models = await LocalOllamaProvider.getAvailableModels(ollamaUrl);
+          
+          console.log(`Found ${models.length} Ollama vision models`);
+          
+          res.json({
+            data: models,
+            provider: provider,
+            total: models.length,
+            ollama_url: ollamaUrl,
+            dynamic: true
+          });
+          return;
+          
+        } catch (ollamaError) {
+          console.error('Failed to fetch Ollama models:', ollamaError);
+          
+          // Fallback to default models if Ollama API fails
+          console.log('Falling back to default Ollama models');
+          res.json({
+            data: defaultModels[provider],
+            provider: provider,
+            total: defaultModels[provider].length,
+            fallback: true,
+            error: `Failed to connect to Ollama: ${ollamaError.message}`
+          });
+          return;
+        }
       }
 
       // For external providers, return default models
