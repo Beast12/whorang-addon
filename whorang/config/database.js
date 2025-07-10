@@ -236,6 +236,17 @@ function createTables() {
       )
     `);
 
+    // Create model cache table for dynamic model management
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS model_cache (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        provider TEXT NOT NULL UNIQUE,
+        models_data TEXT NOT NULL,
+        cached_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT
+      )
+    `);
+
     // Create indexes for better performance
     db.exec(`CREATE INDEX IF NOT EXISTS idx_detected_faces_person_id ON detected_faces (person_id)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_detected_faces_visitor_event_id ON detected_faces (visitor_event_id)`);

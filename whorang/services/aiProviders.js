@@ -538,14 +538,25 @@ If no faces can be precisely located, return faces_detected: 0 and empty faces a
     }
   }
 
-  // Static method to get available OpenAI models
-  static async getAvailableModels(apiKey) {
+  // Static method to get available OpenAI models with enhanced filtering and caching
+  static async getAvailableModels(apiKey, useCache = true) {
     try {
+      // Check cache first if enabled
+      if (useCache) {
+        const cachedModels = await this.getCachedModels('openai');
+        if (cachedModels && cachedModels.length > 0) {
+          console.log('Using cached OpenAI models');
+          return cachedModels;
+        }
+      }
+
+      console.log('Fetching fresh OpenAI models from API...');
       const response = await fetch('https://api.openai.com/v1/models', {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 10000 // 10 second timeout
       });
 
       if (!response.ok) {
@@ -554,31 +565,118 @@ If no faces can be precisely located, return faces_detected: 0 and empty faces a
 
       const data = await response.json();
       
-      // Filter for vision-capable models
+      // Enhanced filtering for vision-capable models with deprecation awareness
       const visionModels = data.data.filter(model => {
         const name = model.id.toLowerCase();
-        return name.includes('gpt-4') && (
-          name.includes('vision') || 
-          name.includes('gpt-4o') ||
-          name === 'gpt-4-turbo'
+        
+        // Exclude known deprecated models
+        const deprecatedModels = [
+          'gpt-4-vision-preview',
+          'gpt-4-1106-vision-preview',
+          'gpt-4-0125-preview'
+        ];
+        
+        if (deprecatedModels.includes(model.id)) {
+          console.warn(`Filtering out deprecated model: ${model.id}`);
+          return false;
+        }
+        
+        // Include current vision-capable models
+        return (
+          name.includes('gpt-4o') || // GPT-4o and variants
+          (name.includes('gpt-4') && name.includes('turbo')) || // GPT-4 Turbo
+          name === 'gpt-4-turbo' ||
+          name === 'gpt-4-turbo-2024-04-09'
         );
       });
 
-      return visionModels.map(model => ({
+      // Sort by preference (GPT-4o models first)
+      visionModels.sort((a, b) => {
+        const aIsGPT4o = a.id.includes('gpt-4o');
+        const bIsGPT4o = b.id.includes('gpt-4o');
+        
+        if (aIsGPT4o && !bIsGPT4o) return -1;
+        if (!aIsGPT4o && bIsGPT4o) return 1;
+        return a.id.localeCompare(b.id);
+      });
+
+      const formattedModels = visionModels.map(model => ({
         value: model.id,
-        label: model.id,
+        label: this.formatModelLabel(model.id),
         created: model.created,
-        owned_by: model.owned_by
+        owned_by: model.owned_by,
+        deprecated: false,
+        recommended: model.id === 'gpt-4o' || model.id === 'gpt-4o-mini'
       }));
+
+      // Cache the results
+      if (useCache && formattedModels.length > 0) {
+        await this.cacheModels('openai', formattedModels);
+      }
+
+      console.log(`Found ${formattedModels.length} current OpenAI vision models`);
+      return formattedModels;
+
     } catch (error) {
       console.error('Error fetching OpenAI models:', error);
-      // Return fallback models
-      return [
-        { value: 'gpt-4o', label: 'GPT-4o (Recommended)' },
-        { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Cost-effective)' },
-        { value: 'gpt-4-vision-preview', label: 'GPT-4 Vision Preview' },
-        { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' }
+      
+      // Return updated fallback models (no deprecated ones)
+      const fallbackModels = [
+        { value: 'gpt-4o', label: 'GPT-4o (Recommended)', recommended: true, deprecated: false },
+        { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Cost-effective)', recommended: true, deprecated: false },
+        { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', recommended: false, deprecated: false }
       ];
+      
+      console.log('Using fallback OpenAI models due to API error');
+      return fallbackModels;
+    }
+  }
+
+  // Helper method to format model labels
+  static formatModelLabel(modelId) {
+    const labelMap = {
+      'gpt-4o': 'GPT-4o (Recommended)',
+      'gpt-4o-mini': 'GPT-4o Mini (Cost-effective)',
+      'gpt-4-turbo': 'GPT-4 Turbo',
+      'gpt-4-turbo-2024-04-09': 'GPT-4 Turbo (April 2024)'
+    };
+    
+    return labelMap[modelId] || modelId;
+  }
+
+  // Cache management methods
+  static async getCachedModels(provider) {
+    try {
+      const db = require('../config/database').getDatabase();
+      const stmt = db.prepare(`
+        SELECT models_data, cached_at 
+        FROM model_cache 
+        WHERE provider = ? AND cached_at > datetime('now', '-24 hours')
+      `);
+      
+      const result = stmt.get(provider);
+      if (result) {
+        return JSON.parse(result.models_data);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting cached models:', error);
+      return null;
+    }
+  }
+
+  static async cacheModels(provider, models) {
+    try {
+      const db = require('../config/database').getDatabase();
+      const stmt = db.prepare(`
+        INSERT OR REPLACE INTO model_cache (provider, models_data, cached_at)
+        VALUES (?, ?, datetime('now'))
+      `);
+      
+      stmt.run(provider, JSON.stringify(models));
+      console.log(`Cached ${models.length} models for provider: ${provider}`);
+    } catch (error) {
+      console.error('Error caching models:', error);
     }
   }
 
@@ -1087,7 +1185,7 @@ class GoogleGeminiProvider extends BaseAIProvider {
     }
 
     const startTime = Date.now();
-    const model = this.config.gemini_model || 'gemini-pro-vision';
+    const model = this.config.gemini_model || 'gemini-1.5-flash';
 
     try {
       // Convert image to base64 if needed
@@ -1442,26 +1540,98 @@ If no faces are detected, set faces_detected to 0 and faces to empty array. Alwa
     }
   }
 
-  // Static method to get available Gemini models
-  static async getAvailableModels(apiKey) {
-    // Return known Gemini models
-    return [
-      { 
-        value: 'gemini-pro-vision', 
-        label: 'Gemini Pro Vision (Recommended)',
-        pricing: { input: 0.00025, output: 0.00075 }
-      },
-      { 
-        value: 'gemini-1.5-pro', 
-        label: 'Gemini 1.5 Pro (Most Capable)',
-        pricing: { input: 0.00125, output: 0.005 }
-      },
-      { 
-        value: 'gemini-1.5-flash', 
-        label: 'Gemini 1.5 Flash (Fast & Cost-effective)',
-        pricing: { input: 0.000075, output: 0.0003 }
+  // Static method to get available Gemini models with deprecation awareness
+  static async getAvailableModels(apiKey, useCache = true) {
+    try {
+      // Check cache first if enabled
+      if (useCache) {
+        const cachedModels = await OpenAIVisionProvider.getCachedModels('gemini');
+        if (cachedModels && cachedModels.length > 0) {
+          console.log('Using cached Gemini models');
+          return cachedModels;
+        }
       }
-    ];
+
+      console.log('Fetching fresh Gemini models...');
+      
+      // Gemini doesn't have a models list endpoint, so we return current known models
+      // with deprecation awareness
+      const currentModels = [
+        { 
+          value: 'gemini-1.5-flash', 
+          label: 'Gemini 1.5 Flash (Recommended)',
+          pricing: { input: 0.000075, output: 0.0003 },
+          deprecated: false,
+          recommended: true
+        },
+        { 
+          value: 'gemini-1.5-pro', 
+          label: 'Gemini 1.5 Pro (Most Capable)',
+          pricing: { input: 0.00125, output: 0.005 },
+          deprecated: false,
+          recommended: false
+        },
+        { 
+          value: 'gemini-1.5-flash-8b', 
+          label: 'Gemini 1.5 Flash 8B (Ultra Fast)',
+          pricing: { input: 0.0000375, output: 0.00015 },
+          deprecated: false,
+          recommended: false
+        }
+      ];
+
+      // Filter out deprecated models and add warnings
+      const deprecatedModels = [
+        'gemini-pro-vision',
+        'gemini-1.0-pro-vision',
+        'gemini-1.0-pro'
+      ];
+
+      // Add deprecated models with warnings for reference
+      const deprecatedModelsList = [
+        { 
+          value: 'gemini-pro-vision', 
+          label: 'Gemini Pro Vision (DEPRECATED - Use 1.5 Flash)',
+          pricing: { input: 0.00025, output: 0.00075 },
+          deprecated: true,
+          recommended: false,
+          deprecation_message: 'Deprecated July 12, 2024. Use gemini-1.5-flash instead.'
+        }
+      ];
+
+      // Combine current and deprecated (for migration purposes)
+      const allModels = [...currentModels, ...deprecatedModelsList];
+
+      // Cache the results
+      if (useCache && currentModels.length > 0) {
+        await OpenAIVisionProvider.cacheModels('gemini', allModels);
+      }
+
+      console.log(`Found ${currentModels.length} current Gemini models`);
+      return allModels;
+
+    } catch (error) {
+      console.error('Error fetching Gemini models:', error);
+      
+      // Return updated fallback models (no deprecated ones by default)
+      const fallbackModels = [
+        { 
+          value: 'gemini-1.5-flash', 
+          label: 'Gemini 1.5 Flash (Recommended)', 
+          recommended: true, 
+          deprecated: false 
+        },
+        { 
+          value: 'gemini-1.5-pro', 
+          label: 'Gemini 1.5 Pro (Most Capable)', 
+          recommended: false, 
+          deprecated: false 
+        }
+      ];
+      
+      console.log('Using fallback Gemini models');
+      return fallbackModels;
+    }
   }
 
   // Test API connection

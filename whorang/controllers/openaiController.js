@@ -46,11 +46,10 @@ class OpenAIController {
         errorMessage = 'Cannot connect to OpenAI API - check internet connection';
       }
       
-      // Return fallback models on error
+      // Return updated fallback models (no deprecated ones)
       const fallbackModels = [
         { value: 'gpt-4o', label: 'GPT-4o (Recommended)' },
         { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Cost-effective)' },
-        { value: 'gpt-4-vision-preview', label: 'GPT-4 Vision Preview' },
         { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' }
       ];
 
@@ -588,7 +587,7 @@ class OpenAIController {
     }
   }
 
-  // Get default model mappings
+  // Get default model mappings with deprecation awareness
   static _getDefaultModels() {
     return {
       local: [
@@ -603,9 +602,8 @@ class OpenAIController {
       openai: [
         'gpt-4o',
         'gpt-4o-mini',
-        'gpt-4-turbo',
-        'gpt-4-vision-preview',
-        'gpt-3.5-turbo'
+        'gpt-4-turbo'
+        // Removed deprecated: 'gpt-4-vision-preview', 'gpt-3.5-turbo'
       ],
       claude: [
         'claude-3-5-sonnet-20241022',
@@ -615,10 +613,10 @@ class OpenAIController {
         'claude-3-haiku-20240307'
       ],
       gemini: [
-        'gemini-1.5-pro',
         'gemini-1.5-flash',
-        'gemini-1.0-pro-vision',
-        'gemini-1.0-pro'
+        'gemini-1.5-pro',
+        'gemini-1.5-flash-8b'
+        // Removed deprecated: 'gemini-1.0-pro-vision', 'gemini-1.0-pro'
       ],
       'google-cloud-vision': [
         'vision-api-v1',
