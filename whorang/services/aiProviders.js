@@ -1256,7 +1256,65 @@ If no faces are detected, set faces_detected to 0 and faces to empty array. Alwa
           }],
           generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 1000
+            maxOutputTokens: 1000,
+            // CRITICAL FIX: Force structured JSON response to prevent parsing ambiguities
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "object",
+              properties: {
+                faces_detected: { type: "number" },
+                faces: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "number" },
+                      bounding_box: {
+                        type: "object",
+                        properties: {
+                          x: { type: "number" },
+                          y: { type: "number" },
+                          width: { type: "number" },
+                          height: { type: "number" }
+                        },
+                        required: ["x", "y", "width", "height"]
+                      },
+                      confidence: { type: "number" },
+                      description: { type: "string" },
+                      quality: { type: "string" },
+                      distinctive_features: { 
+                        type: "array", 
+                        items: { type: "string" } 
+                      }
+                    },
+                    required: ["id", "bounding_box", "confidence", "description"]
+                  }
+                },
+                objects_detected: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      object: { type: "string" },
+                      confidence: { type: "number" },
+                      description: { type: "string" }
+                    },
+                    required: ["object", "confidence", "description"]
+                  }
+                },
+                scene_analysis: {
+                  type: "object",
+                  properties: {
+                    overall_confidence: { type: "number" },
+                    description: { type: "string" },
+                    lighting: { type: "string" },
+                    image_quality: { type: "string" }
+                  },
+                  required: ["overall_confidence", "description", "lighting", "image_quality"]
+                }
+              },
+              required: ["faces_detected", "faces", "objects_detected", "scene_analysis"]
+            }
           }
         })
       });
@@ -1384,37 +1442,45 @@ If no faces are detected, set faces_detected to 0 and faces to empty array. Alwa
     try {
       console.log('Raw Gemini response:', responseText);
       
-      // Try to extract JSON from the response
-      let jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        console.log('No JSON found in Gemini response, creating default');
-        return {
-          faces_detected: 0,
-          faces: [],
-          objects_detected: [],
-          scene_analysis: {
-            overall_confidence: 0,
-            description: 'No analysis available',
-            lighting: 'unknown',
-            image_quality: 'unknown'
-          }
-        };
-      }
+      // ENHANCED: With structured JSON response format, we should get clean JSON directly
+      // No need for regex parsing anymore since we're using responseMimeType: "application/json"
+      let parsed;
       
-      const jsonStr = jsonMatch[0];
-      const parsed = JSON.parse(jsonStr);
+      if (typeof responseText === 'string') {
+        // If it's still a string, try to parse it directly
+        try {
+          parsed = JSON.parse(responseText);
+          console.log('✅ Gemini returned clean JSON (structured response working)');
+        } catch (parseError) {
+          // Fallback to regex parsing for backward compatibility
+          console.log('⚠️  Gemini response not clean JSON, falling back to regex parsing');
+          let jsonMatch = responseText.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) {
+            throw new Error('No JSON found in response');
+          }
+          parsed = JSON.parse(jsonMatch[0]);
+        }
+      } else if (typeof responseText === 'object') {
+        // If it's already an object, use it directly
+        parsed = responseText;
+        console.log('✅ Gemini returned structured object (perfect!)');
+      } else {
+        throw new Error('Unexpected response format');
+      }
       
       // Validate and normalize the response structure
       return this.validateAndNormalizeResponse(parsed);
+      
     } catch (error) {
       console.error('Error parsing Gemini response:', error);
+      console.error('Response text:', responseText);
       return {
         faces_detected: 0,
         faces: [],
         objects_detected: [],
         scene_analysis: {
           overall_confidence: 0,
-          description: 'Error in analysis',
+          description: 'Error in analysis - structured JSON parsing failed',
           lighting: 'unknown',
           image_quality: 'unknown'
         }
