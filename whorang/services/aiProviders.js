@@ -1013,7 +1013,7 @@ If you see no faces, set faces_detected to 0 and faces to empty array. Always an
         parsed.faces = [];
       }
       
-      // Validate each face object
+      // Validate each face object with basic fallback
       parsed.faces = parsed.faces.map((face, index) => {
         return {
           id: face.id || index + 1,
@@ -1024,6 +1024,22 @@ If you see no faces, set faces_detected to 0 and faces to empty array. Always an
           distinctive_features: Array.isArray(face.distinctive_features) ? face.distinctive_features : []
         };
       });
+
+      // Apply Ollama face cropping fix to improve coordinate accuracy
+      if (parsed.faces.length > 0) {
+        console.log('🔧 Applying Ollama face cropping fix...');
+        const ollamaFaceCroppingFix = require('./ollamaFaceCroppingFix');
+        
+        const originalFaces = [...parsed.faces];
+        parsed.faces = ollamaFaceCroppingFix.fixOllamaFaceCoordinates(parsed.faces);
+        
+        // Update faces_detected count after fixing
+        parsed.faces_detected = parsed.faces.length;
+        
+        // Log improvement statistics
+        const stats = ollamaFaceCroppingFix.getCroppingStats(originalFaces, parsed.faces);
+        console.log('📊 Ollama face cropping stats:', stats);
+      }
       
       // Validate objects_detected array
       if (!Array.isArray(parsed.objects_detected)) {
