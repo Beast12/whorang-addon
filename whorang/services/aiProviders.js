@@ -1043,14 +1043,21 @@ If you see no faces, set faces_detected to 0 and faces to empty array. Always an
         };
       });
 
-      // TEMPORARILY DISABLED: Ollama face cropping fix
-      // The real issue is that Ollama needs better prompting for accurate face detection
-      // Rather than "fixing" coordinates, we should improve the detection prompt
+      // Apply Ollama face cropping fix to improve coordinate accuracy
+      // Now that JSON truncation is fixed, we can apply coordinate tightening for better crops
       if (parsed.faces.length > 0) {
-        console.log('⚠️  Ollama face coordinates (may need better prompting):');
-        parsed.faces.forEach((face, i) => {
-          console.log(`Face ${i+1}: x=${face.bounding_box.x}, y=${face.bounding_box.y}, w=${face.bounding_box.width}, h=${face.bounding_box.height}`);
-        });
+        console.log('🔧 Applying Ollama face cropping improvement...');
+        const ollamaFaceCroppingFix = require('./ollamaFaceCroppingFix');
+        
+        const originalFaces = [...parsed.faces];
+        parsed.faces = ollamaFaceCroppingFix.fixOllamaFaceCoordinates(parsed.faces);
+        
+        // Update faces_detected count after fixing
+        parsed.faces_detected = parsed.faces.length;
+        
+        // Log improvement statistics
+        const stats = ollamaFaceCroppingFix.getCroppingStats(originalFaces, parsed.faces);
+        console.log('📊 Ollama face cropping stats:', stats);
       }
       
       // Validate objects_detected array
@@ -1110,40 +1117,57 @@ If you see no faces, set faces_detected to 0 and faces to empty array. Always an
       // Common truncation patterns and fixes
       let fixed = jsonStr.trim();
       
-      // If JSON ends abruptly without closing braces, try to complete it
-      if (!fixed.endsWith('}')) {
-        console.log('🔧 JSON missing closing braces, attempting to complete...');
-        
-        // Count open vs closed braces to determine how many we need
-        const openBraces = (fixed.match(/\{/g) || []).length;
-        const closeBraces = (fixed.match(/\}/g) || []).length;
-        const missingBraces = openBraces - closeBraces;
-        
-        if (missingBraces > 0) {
-          // Add missing closing braces
-          fixed += '}' + '}'.repeat(missingBraces - 1);
-          console.log(`Added ${missingBraces} missing closing braces`);
-        }
-      }
+      console.log('🔧 Attempting to fix JSON truncation...');
+      console.log('Original length:', fixed.length);
       
-      // If JSON ends with incomplete string, try to close it
-      if (fixed.match(/[^"\\]"[^"]*$/)) {
-        console.log('🔧 JSON has incomplete string, attempting to close...');
+      // Handle incomplete strings at the end
+      if (fixed.match(/"[^"]*$/)) {
+        console.log('🔧 Found incomplete string at end, closing it...');
         fixed += '"';
       }
       
-      // If JSON ends with incomplete array, try to close it
+      // Handle incomplete property values
+      if (fixed.match(/:\s*"[^"]*$/)) {
+        console.log('🔧 Found incomplete property value, closing it...');
+        fixed += '"';
+      }
+      
+      // Remove trailing commas
       if (fixed.match(/,\s*$/)) {
-        console.log('🔧 JSON ends with trailing comma, removing...');
+        console.log('🔧 Removing trailing comma...');
         fixed = fixed.replace(/,\s*$/, '');
       }
       
+      // Count and balance braces
+      const openBraces = (fixed.match(/\{/g) || []).length;
+      const closeBraces = (fixed.match(/\}/g) || []).length;
+      const openBrackets = (fixed.match(/\[/g) || []).length;
+      const closeBrackets = (fixed.match(/\]/g) || []).length;
+      
+      // Add missing closing brackets first
+      const missingBrackets = openBrackets - closeBrackets;
+      if (missingBrackets > 0) {
+        console.log(`🔧 Adding ${missingBrackets} missing closing brackets...`);
+        fixed += ']'.repeat(missingBrackets);
+      }
+      
+      // Add missing closing braces
+      const missingBraces = openBraces - closeBraces;
+      if (missingBraces > 0) {
+        console.log(`🔧 Adding ${missingBraces} missing closing braces...`);
+        fixed += '}'.repeat(missingBraces);
+      }
+      
+      console.log('🔧 Fixed JSON length:', fixed.length);
+      
       // Try to parse the fixed JSON
       JSON.parse(fixed);
+      console.log('✅ JSON fix successful!');
       return fixed;
       
     } catch (error) {
-      console.warn('Could not fix truncated JSON:', error.message);
+      console.warn('❌ Could not fix truncated JSON:', error.message);
+      console.warn('Fixed JSON was:', fixed.substring(fixed.length - 100)); // Show last 100 chars
       return null;
     }
   }
