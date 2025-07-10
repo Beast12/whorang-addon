@@ -41,21 +41,26 @@ class UploadPaths {
    * Get a relative URL path for faces
    */
   getFacesUrlPath() {
-    return `/${this.baseUploadPath}/faces`;
+    // Ensure no double slashes when baseUploadPath starts with /
+    const basePath = this.baseUploadPath.startsWith('/') ? this.baseUploadPath : `/${this.baseUploadPath}`;
+    return `${basePath}/faces`;
   }
 
   /**
    * Get a relative URL path for thumbnails
    */
   getThumbnailsUrlPath() {
-    return `/${this.baseUploadPath}/thumbnails`;
+    // Ensure no double slashes when baseUploadPath starts with /
+    const basePath = this.baseUploadPath.startsWith('/') ? this.baseUploadPath : `/${this.baseUploadPath}`;
+    return `${basePath}/thumbnails`;
   }
 
   /**
    * Get a relative URL path for general uploads
    */
   getUploadsUrlPath() {
-    return `/${this.baseUploadPath}`;
+    // Ensure no double slashes when baseUploadPath starts with /
+    return this.baseUploadPath.startsWith('/') ? this.baseUploadPath : `/${this.baseUploadPath}`;
   }
 
   /**
