@@ -454,8 +454,8 @@ class OpenAIController {
           // Import the LocalOllamaProvider
           const { LocalOllamaProvider } = require('../services/aiProviders');
           
-          // Get models from Ollama API
-          const models = await LocalOllamaProvider.getAvailableModels(ollamaUrl);
+          // Get models from Ollama API (disable cache to avoid database issues)
+          const models = await LocalOllamaProvider.getAvailableModels(ollamaUrl, false);
           
           console.log(`Found ${models.length} Ollama vision models`);
           
