@@ -63,10 +63,10 @@ router.get('/:faceId/image', async (req, res) => {
     // Handle both absolute and relative paths
     let fullImagePath;
     if (path.isAbsolute(imagePath)) {
-      // If it's an absolute path starting with /, treat it as relative to working directory
-      fullImagePath = path.join(process.cwd(), imagePath.substring(1));
+      // For absolute paths, use them directly (they're already correct file system paths)
+      fullImagePath = imagePath;
     } else {
-      // If it's already relative, resolve from working directory
+      // For relative paths, resolve from working directory
       fullImagePath = path.resolve(imagePath);
     }
     
