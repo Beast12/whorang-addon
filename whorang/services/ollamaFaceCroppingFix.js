@@ -172,26 +172,26 @@ class OllamaFaceCroppingFix {
     
     // If face center is off-center, bias the crop towards center of image
     const imageCenter = 0.5; // 50% of image
-    const centeringThreshold = 0.25; // Apply centering if face is more than 25% away from center
+    const centeringThreshold = 0.3; // Apply centering if face is more than 30% away from center
     
     // Calculate distance from image center
     const distanceFromCenterX = Math.abs(centerX - imageCenter);
     const distanceFromCenterY = Math.abs(centerY - imageCenter);
     
-    // Horizontal centering adjustment
+    // Horizontal centering adjustment - CONSERVATIVE
     if (distanceFromCenterX > centeringThreshold) {
-      console.log(`🎯 Face off-center horizontally (${(centerX*100).toFixed(1)}% vs 50%), applying centering bias`);
-      // Bias towards image center while keeping face in frame
-      const biasFactor = 0.4; // 40% bias towards center
+      console.log(`🎯 Face off-center horizontally (${(centerX*100).toFixed(1)}% vs 50%), applying CONSERVATIVE centering bias`);
+      // Much more conservative bias towards image center
+      const biasFactor = 0.15; // Only 15% bias towards center (was 40%)
       const targetX = centerX + (imageCenter - centerX) * biasFactor;
       newX = targetX - newWidth / 2;
     }
     
-    // Vertical centering adjustment  
+    // Vertical centering adjustment - CONSERVATIVE
     if (distanceFromCenterY > centeringThreshold) {
-      console.log(`🎯 Face off-center vertically (${(centerY*100).toFixed(1)}% vs 50%), applying centering bias`);
-      // Bias towards image center while keeping face in frame
-      const biasFactor = 0.4; // 40% bias towards center
+      console.log(`🎯 Face off-center vertically (${(centerY*100).toFixed(1)}% vs 50%), applying CONSERVATIVE centering bias`);
+      // Much more conservative bias towards image center
+      const biasFactor = 0.15; // Only 15% bias towards center (was 40%)
       const targetY = centerY + (imageCenter - centerY) * biasFactor;
       newY = targetY - newHeight / 2;
     }
