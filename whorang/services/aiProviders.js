@@ -1444,6 +1444,35 @@ If no faces are detected, set faces_detected to 0 and faces to empty array. Alwa
       };
     });
     
+    // ENHANCED: Apply face deduplication for Gemini (which tends to produce duplicates)
+    if (parsed.faces.length > 1) {
+      console.log(`🔍 Gemini detected ${parsed.faces.length} faces, checking for duplicates...`);
+      
+      const faceDeduplicationService = require('./faceDeduplication');
+      const originalCount = parsed.faces.length;
+      
+      // Deduplicate faces
+      parsed.faces = faceDeduplicationService.deduplicateFaces(parsed.faces);
+      
+      // Update faces_detected count after deduplication
+      parsed.faces_detected = parsed.faces.length;
+      
+      // Log deduplication results
+      const stats = faceDeduplicationService.getDeduplicationStats(
+        { length: originalCount }, 
+        parsed.faces
+      );
+      
+      if (stats.duplicatesRemoved > 0) {
+        console.log(`🎯 Gemini deduplication: ${originalCount} → ${parsed.faces.length} faces (removed ${stats.duplicatesRemoved} duplicates)`);
+        
+        // Update scene analysis to reflect deduplication
+        if (parsed.scene_analysis) {
+          parsed.scene_analysis.description = `${parsed.scene_analysis.description} (${stats.duplicatesRemoved} duplicate faces merged)`;
+        }
+      }
+    }
+    
     // Validate objects_detected array
     if (!Array.isArray(parsed.objects_detected)) {
       parsed.objects_detected = [];
