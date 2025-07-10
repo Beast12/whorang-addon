@@ -71,11 +71,12 @@ class FaceProcessingService {
       if (analysisResults.faces_detected > 0) {
         console.log(`Found ${analysisResults.faces_detected} faces in event ${eventId}`);
         
-        // Extract face crops from the image
+        // Extract face crops from the image with AI provider context
         const faceCrops = await faceCroppingService.extractFaceCrops(
           imageUrl, 
           analysisResults.faces, 
-          eventId
+          eventId,
+          config.ai_provider // Pass AI provider for coordinate correction
         );
         
         // Process each detected face

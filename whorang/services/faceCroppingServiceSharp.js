@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const sharp = require('sharp');
+const coordinateCorrection = require('./coordinateCorrection');
 
 class FaceCroppingServiceSharp {
   constructor() {
@@ -70,9 +71,10 @@ class FaceCroppingServiceSharp {
    * @param {string} imageUrl - URL or path to the full image
    * @param {Array} faceDetections - Array of face detection results with bounding boxes
    * @param {number} visitorEventId - ID of the visitor event
+   * @param {string} aiProvider - AI provider used for detection (for coordinate correction)
    * @returns {Array} Array of face crop information
    */
-  async extractFaceCrops(imageUrl, faceDetections, visitorEventId) {
+  async extractFaceCrops(imageUrl, faceDetections, visitorEventId, aiProvider = 'unknown') {
     try {
       console.log(`Sharp: Extracting ${faceDetections.length} face crops from image: ${imageUrl}`);
       
@@ -90,8 +92,8 @@ class FaceCroppingServiceSharp {
         const faceId = `${visitorEventId}_face_${i + 1}_${Date.now()}`;
         
         try {
-          // Extract face crop using Sharp
-          const faceCrop = await this.cropFaceWithSharp(fullImagePath, face.bounding_box, faceId, metadata);
+          // Extract face crop using Sharp with AI provider context
+          const faceCrop = await this.cropFaceWithSharp(fullImagePath, face.bounding_box, faceId, metadata, aiProvider);
           
           // Generate thumbnail
           const thumbnail = await this.generateThumbnailWithSharp(faceCrop.path, faceId);
@@ -123,14 +125,14 @@ class FaceCroppingServiceSharp {
   /**
    * Crop a single face from the full image using Sharp for pixel-perfect precision
    */
-  async cropFaceWithSharp(imagePath, boundingBox, faceId, metadata) {
+  async cropFaceWithSharp(imagePath, boundingBox, faceId, metadata, aiProvider = 'unknown') {
     const { x, y, width, height } = boundingBox;
     
     console.log(`Sharp: Processing bounding box: x=${x}, y=${y}, w=${width}, h=${height}`);
     console.log(`Sharp: Image dimensions: ${metadata.width}x${metadata.height}`);
     
-    // FIXED: Detect coordinate format and convert properly
-    const normalizedCoords = this.normalizeCoordinates(boundingBox, metadata.width, metadata.height);
+    // ENHANCED: Detect coordinate format and apply AI provider corrections
+    const normalizedCoords = this.normalizeCoordinates(boundingBox, metadata.width, metadata.height, aiProvider);
     const cropX = Math.round(normalizedCoords.x);
     const cropY = Math.round(normalizedCoords.y);
     const cropWidth = Math.round(normalizedCoords.width);
@@ -247,29 +249,31 @@ class FaceCroppingServiceSharp {
   /**
    * FIXED: Normalize coordinates from different formats to pixel coordinates
    * Handles both normalized (0.0-1.0) and percentage (0-100) coordinate formats
-   * CRITICAL FIX: Detects when coordinates represent center+size vs top-left+size
+   * TRUST AI PROVIDERS - Only handle format conversion, no spatial corrections
    */
-  normalizeCoordinates(boundingBox, imageWidth, imageHeight) {
+  normalizeCoordinates(boundingBox, imageWidth, imageHeight, aiProvider = 'unknown') {
     const { x, y, width, height } = boundingBox;
     
     console.log(`Sharp: Analyzing coordinates: x=${x}, y=${y}, w=${width}, h=${height}`);
     console.log(`Sharp: Image dimensions: ${imageWidth}x${imageHeight}`);
+    console.log(`Sharp: AI Provider: ${aiProvider} (format detection only)`);
     
-    // Detect coordinate format based on values
+    // ONLY detect coordinate format and convert to pixels - NO spatial corrections
     let pixelCoords;
+    const coords = boundingBox; // Use original coordinates directly
     
     // Check if coordinates are normalized (0.0-1.0)
-    if (x <= 1.0 && y <= 1.0 && width <= 1.0 && height <= 1.0 && 
-        (x > 0 || y > 0 || width > 0 || height > 0)) {
+    if (coords.x <= 1.0 && coords.y <= 1.0 && coords.width <= 1.0 && coords.height <= 1.0 && 
+        (coords.x > 0 || coords.y > 0 || coords.width > 0 || coords.height > 0)) {
       
       console.log(`Sharp: Detected normalized coordinates (0.0-1.0)`);
       
       // CRITICAL FIX: Check if these are center-based coordinates
       // Many AI models return center coordinates, not top-left
-      const centerX = x * imageWidth;
-      const centerY = y * imageHeight;
-      const faceWidth = width * imageWidth;
-      const faceHeight = height * imageHeight;
+      const centerX = coords.x * imageWidth;
+      const centerY = coords.y * imageHeight;
+      const faceWidth = coords.width * imageWidth;
+      const faceHeight = coords.height * imageHeight;
       
       // Check if treating as center coordinates would make more sense
       const leftFromCenter = centerX - (faceWidth / 2);
@@ -300,29 +304,29 @@ class FaceCroppingServiceSharp {
         };
       }
       
-    } else if (x <= 100 && y <= 100 && width <= 100 && height <= 100) {
+    } else if (coords.x <= 100 && coords.y <= 100 && coords.width <= 100 && coords.height <= 100) {
       // Percentage coordinates (0-100)
       console.log(`Sharp: Detected percentage coordinates (0-100)`);
       pixelCoords = {
-        x: (x / 100) * imageWidth,
-        y: (y / 100) * imageHeight,
-        width: (width / 100) * imageWidth,
-        height: (height / 100) * imageHeight
+        x: (coords.x / 100) * imageWidth,
+        y: (coords.y / 100) * imageHeight,
+        width: (coords.width / 100) * imageWidth,
+        height: (coords.height / 100) * imageHeight
       };
       
     } else {
       // Assume pixel coordinates (though this is unusual for AI providers)
       console.log(`Sharp: Assuming pixel coordinates`);
-      pixelCoords = { x, y, width, height };
+      pixelCoords = { x: coords.x, y: coords.y, width: coords.width, height: coords.height };
     }
     
-    // Validate and clamp the resulting coordinates
+    // Step 3: Validate and clamp the resulting coordinates
     pixelCoords.x = Math.max(0, pixelCoords.x);
     pixelCoords.y = Math.max(0, pixelCoords.y);
     pixelCoords.width = Math.min(pixelCoords.width, imageWidth - pixelCoords.x);
     pixelCoords.height = Math.min(pixelCoords.height, imageHeight - pixelCoords.y);
     
-    // Final validation
+    // Step 4: Final validation and reporting
     if (pixelCoords.width < 10 || pixelCoords.height < 10) {
       console.warn(`Sharp: WARNING - Face crop very small: ${pixelCoords.width}x${pixelCoords.height}px`);
       console.warn(`Sharp: Original coordinates: x=${x}, y=${y}, w=${width}, h=${height}`);
@@ -339,7 +343,14 @@ class FaceCroppingServiceSharp {
     
     console.log(`Sharp: Final coordinates: (${Math.round(pixelCoords.x)},${Math.round(pixelCoords.y)},${Math.round(pixelCoords.width)},${Math.round(pixelCoords.height)})`);
     
-    return pixelCoords;
+    // Return pixel coordinates with metadata (no corrections applied)
+    return {
+      ...pixelCoords,
+      correctionApplied: false,
+      appliedCorrections: [],
+      originalCoordinates: boundingBox,
+      aiProvider: aiProvider
+    };
   }
 
   /**
