@@ -1,10 +1,12 @@
 
 const multer = require('multer');
-const path = require('path');
 const fs = require('fs');
+const uploadPaths = require('../utils/uploadPaths');
+
+// Get upload directory from centralized configuration
+const uploadDir = uploadPaths.getFacesUploadPath();
 
 // Ensure upload directory exists with proper error handling
-const uploadDir = 'uploads/faces/';
 try {
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });

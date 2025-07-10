@@ -2,12 +2,13 @@ const fs = require('fs').promises;
 const path = require('path');
 const sharp = require('sharp');
 const coordinateCorrection = require('./coordinateCorrection');
+const uploadPaths = require('../utils/uploadPaths');
 
 class FaceCroppingServiceSharp {
   constructor() {
-    this.uploadsDir = path.join(__dirname, '../uploads');
-    this.facesDir = path.join(this.uploadsDir, 'faces');
-    this.thumbnailsDir = path.join(this.uploadsDir, 'thumbnails');
+    this.uploadsDir = uploadPaths.getBaseUploadPath();
+    this.facesDir = uploadPaths.getFacesUploadPath();
+    this.thumbnailsDir = uploadPaths.getThumbnailsUploadPath();
     
     // Ensure directories exist
     this.ensureDirectories();
@@ -181,7 +182,7 @@ class FaceCroppingServiceSharp {
     await this.validateFileCreation(filepath, filename);
     
     return {
-      path: `/uploads/faces/${filename}`,
+      path: uploadPaths.createFaceImageUrl(filename),
       filename,
       dimensions: { width: paddedWidth, height: paddedHeight }
     };
@@ -240,7 +241,7 @@ class FaceCroppingServiceSharp {
     await this.validateFileCreation(filepath, filename);
     
     return {
-      path: `/uploads/thumbnails/${filename}`,
+      path: uploadPaths.createThumbnailUrl(filename),
       filename,
       size: thumbnailSize
     };
