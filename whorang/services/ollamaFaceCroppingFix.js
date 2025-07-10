@@ -112,15 +112,22 @@ class OllamaFaceCroppingFix {
   isLooseBoundingBox(bbox) {
     if (!bbox) return false;
 
-    const { width, height } = bbox;
+    let { width, height } = bbox;
 
-    // Consider it loose if it's taking up more than 60% of image width/height
+    // Normalize coordinates if they're in percentage format
+    if (width > 1.0 || height > 1.0) {
+      width = width / 100;
+      height = height / 100;
+    }
+
+    // Consider it loose if it's taking up more than 50% of image width/height
     // or if the aspect ratio is very wide/tall (not face-like)
     const aspectRatio = width / height;
     
+    // More lenient thresholds - only flag really problematic boxes
     return (
-      width > 60 || height > 60 ||  // Too large
-      aspectRatio < 0.4 || aspectRatio > 2.5  // Wrong aspect ratio for faces
+      width > 0.5 || height > 0.5 ||  // Too large (more than 50% of image)
+      aspectRatio < 0.3 || aspectRatio > 3.0  // Very wrong aspect ratio for faces
     );
   }
 
@@ -223,7 +230,7 @@ class OllamaFaceCroppingFix {
    */
   validateAndCleanCoordinates(bbox) {
     if (!bbox) {
-      return { x: 40, y: 30, width: 20, height: 30 }; // Safe default
+      return { x: 0.4, y: 0.3, width: 0.2, height: 0.3 }; // Safe default in normalized format
     }
 
     let { x, y, width, height } = bbox;
@@ -231,16 +238,26 @@ class OllamaFaceCroppingFix {
     // Ensure all values are numbers
     x = Number(x) || 0;
     y = Number(y) || 0;
-    width = Number(width) || 20;
-    height = Number(height) || 30;
+    width = Number(width) || 0.2;
+    height = Number(height) || 0.3;
 
-    // Ensure minimum reasonable size
-    width = Math.max(width, 10);
-    height = Math.max(height, 15);
+    // Detect coordinate format and normalize
+    if (x > 1.0 || y > 1.0 || width > 1.0 || height > 1.0) {
+      // Percentage coordinates (0-100), convert to normalized (0-1)
+      x = x / 100;
+      y = y / 100;
+      width = width / 100;
+      height = height / 100;
+      console.log(`Converted percentage coordinates to normalized: x=${x}, y=${y}, w=${width}, h=${height}`);
+    }
 
-    // Ensure coordinates are within bounds
-    x = Math.max(0, Math.min(x, 100 - width));
-    y = Math.max(0, Math.min(y, 100 - height));
+    // Ensure minimum reasonable size (in normalized coordinates)
+    width = Math.max(width, 0.05); // At least 5% of image
+    height = Math.max(height, 0.08); // At least 8% of image
+
+    // Ensure coordinates are within bounds (normalized 0-1)
+    x = Math.max(0, Math.min(x, 1.0 - width));
+    y = Math.max(0, Math.min(y, 1.0 - height));
 
     return { x, y, width, height };
   }
