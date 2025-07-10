@@ -1193,39 +1193,13 @@ If you see no faces, set faces_detected to 0 and faces to empty array. Always an
 
       const data = response.data;
       
-      // Enhanced filtering for vision-capable models
-      const visionModels = (data.models || []).filter(model => {
-        const name = model.name.toLowerCase();
-        
-        // Include models that are known to support vision
-        const visionKeywords = [
-          'llava',           // LLaVA models
-          'vision',          // Any model with "vision" in name
-          'cogvlm',          // CogVLM models
-          'bakllava',        // BakLLaVA models
-          'llama-vision',    // Llama Vision models
-          'gemma3',          // Gemma 3 models (multimodal)
-          'gemma2',          // Gemma 2 models (some are multimodal)
-          'minicpm',         // MiniCPM-V models
-          'internvl',        // InternVL models
-          'qwen-vl',         // Qwen-VL models
-          'yi-vl'            // Yi-VL models
-        ];
-        
-        return visionKeywords.some(keyword => name.includes(keyword));
-      });
+      // Show ALL models - let user decide which ones work for vision
+      const allModels = data.models || [];
 
-      // Sort by preference (LLaVA models first, then by name)
-      visionModels.sort((a, b) => {
-        const aIsLlava = a.name.toLowerCase().includes('llava');
-        const bIsLlava = b.name.toLowerCase().includes('llava');
-        
-        if (aIsLlava && !bIsLlava) return -1;
-        if (!aIsLlava && bIsLlava) return 1;
-        return a.name.localeCompare(b.name);
-      });
+      // Sort by name for consistent ordering
+      allModels.sort((a, b) => a.name.localeCompare(b.name));
 
-      const formattedModels = visionModels.map(model => ({
+      const formattedModels = allModels.map(model => ({
         value: model.name,
         label: this.formatOllamaModelLabel(model.name),
         size: model.size,
