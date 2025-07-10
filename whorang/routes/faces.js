@@ -165,7 +165,7 @@ router.get('/gallery', async (req, res) => {
       last_seen: person.last_seen,
       first_seen: person.first_seen,
       avg_confidence: person.avg_confidence || 0,
-      avatar_url: `${baseUrl}/api/persons/${person.id}/avatar`
+      avatar_url: `${baseUrl}/api/faces/persons/${person.id}/avatar`
     }));
     
     // Calculate progress
