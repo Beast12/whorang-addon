@@ -51,11 +51,15 @@ function handleWebhookEvent(req, res) {
     weather_humidity,
     weather_condition,
     weather_wind_speed,
-    weather_pressure
+    weather_pressure,
+    // NEW: AI template configuration from Home Assistant integration
+    ai_prompt_template,
+    custom_ai_prompt,
+    enable_weather_context
   } = req.body;
   
-  if (!ai_message || !location) {
-    return res.status(400).json({ error: 'Missing required fields: ai_message, location' });
+  if (!location) {
+    return res.status(400).json({ error: 'Missing required fields: location' });
   }
 
   // Validate numeric weather fields
@@ -141,57 +145,68 @@ function handleWebhookEvent(req, res) {
     faceProcessingService.addToProcessingQueue(eventWithId.id, fullImageUrl)
       .catch(error => console.error('Face processing queue error:', error));
     
-    // **NEW: Trigger automatic AI analysis**
-    if (fullImageUrl && shouldAutoAnalyze()) {
-      console.log('Triggering automatic AI analysis for visitor:', eventWithId.id);
-      
-      // Start analysis in background (don't wait for completion)
-      setImmediate(async () => {
-        try {
-          // Broadcast analysis started
-          broadcast({
-            type: 'analysis_started',
-            data: { 
-              visitor_id: eventWithId.id,
-              image_url: fullImageUrl,
-              timestamp: new Date().toISOString()
-            }
-          });
-          
-          const analysisController = require('../controllers/analysisController');
-          const result = await analysisController.processAnalysisDirectly(eventWithId.id);
-          
-          console.log('Automatic analysis completed for visitor:', eventWithId.id);
-          
-          // Broadcast analysis complete with actual results
-          broadcast({
-            type: 'analysis_complete',
-            data: {
-              visitor_id: eventWithId.id,
-              analysis: result.analysis || 'Analysis completed',
-              confidence: result.confidence || 0,
-              faces_detected: result.faces_detected || 0,
-              provider: result.provider || 'unknown',
-              objects_detected: result.objects_detected || 0,
-              timestamp: new Date().toISOString()
-            }
-          });
-          
-        } catch (error) {
-          console.error('Automatic analysis failed for visitor:', eventWithId.id, error);
-          
-          // Broadcast analysis error
-          broadcast({
-            type: 'analysis_error',
-            data: {
-              visitor_id: eventWithId.id,
-              error: error.message,
-              timestamp: new Date().toISOString()
-            }
-          });
-        }
-      });
-    }
+      // **NEW: Trigger automatic AI analysis with template configuration**
+      if (fullImageUrl && shouldAutoAnalyze()) {
+        console.log('Triggering automatic AI analysis for visitor:', eventWithId.id);
+        
+        // Prepare AI template configuration
+        const aiTemplateConfig = {
+          ai_prompt_template: ai_prompt_template || 'professional',
+          custom_ai_prompt: custom_ai_prompt || '',
+          enable_weather_context: enable_weather_context !== false
+        };
+        
+        console.log('Using AI template configuration:', aiTemplateConfig);
+        
+        // Start analysis in background (don't wait for completion)
+        setImmediate(async () => {
+          try {
+            // Broadcast analysis started
+            broadcast({
+              type: 'analysis_started',
+              data: { 
+                visitor_id: eventWithId.id,
+                image_url: fullImageUrl,
+                timestamp: new Date().toISOString(),
+                ai_template: aiTemplateConfig.ai_prompt_template
+              }
+            });
+            
+            const analysisController = require('../controllers/analysisController');
+            const result = await analysisController.processAnalysisDirectly(eventWithId.id, aiTemplateConfig);
+            
+            console.log('Automatic analysis completed for visitor:', eventWithId.id);
+            
+            // Broadcast analysis complete with actual results
+            broadcast({
+              type: 'analysis_complete',
+              data: {
+                visitor_id: eventWithId.id,
+                analysis: result.analysis || 'Analysis completed',
+                confidence: result.confidence || 0,
+                faces_detected: result.faces_detected || 0,
+                provider: result.provider || 'unknown',
+                objects_detected: result.objects_detected || 0,
+                timestamp: new Date().toISOString(),
+                ai_template: aiTemplateConfig.ai_prompt_template
+              }
+            });
+            
+          } catch (error) {
+            console.error('Automatic analysis failed for visitor:', eventWithId.id, error);
+            
+            // Broadcast analysis error
+            broadcast({
+              type: 'analysis_error',
+              data: {
+                visitor_id: eventWithId.id,
+                error: error.message,
+                timestamp: new Date().toISOString()
+              }
+            });
+          }
+        });
+      }
     
     // Broadcast to WebSocket clients
     broadcast({

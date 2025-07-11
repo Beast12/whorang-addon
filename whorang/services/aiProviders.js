@@ -4,8 +4,97 @@ class BaseAIProvider {
     this.config = config;
   }
 
-  async detectFaces(imageUrl) {
+  async detectFaces(imageUrl, visitorEventId = null, aiTemplateConfig = null) {
     throw new Error('detectFaces method must be implemented');
+  }
+
+  // Get AI prompt based on template configuration
+  getAIPrompt(aiTemplateConfig = null) {
+    // AI prompt templates matching the Home Assistant integration
+    const templates = {
+      "professional": {
+        "prompt": "Analyze this doorbell camera image and provide a professional security description. Focus on identifying people, vehicles, packages, and any security-relevant details. Be precise and factual.",
+        "max_tokens": 150,
+        "temperature": 0.1
+      },
+      "friendly": {
+        "prompt": "Describe what you see at the front door in a friendly, welcoming manner. Focus on visitors and any deliveries or interesting details.",
+        "max_tokens": 120,
+        "temperature": 0.3
+      },
+      "sarcastic": {
+        "prompt": "You are my sarcastic funny security guard. Describe what you see. Don't mention trees, bushes, grass, landscape, driveway, light fixtures, yard, brick, wall, garden. Don't mention the time and date. Be precise and short in one funny one liner of max 10 words. Only describe the person, vehicle or the animal.",
+        "max_tokens": 100,
+        "temperature": 0.2
+      },
+      "detailed": {
+        "prompt": "Provide a comprehensive analysis of this doorbell image including people, objects, weather conditions, lighting, and any notable details. Include confidence levels for your observations.",
+        "max_tokens": 200,
+        "temperature": 0.1
+      },
+      "custom": {
+        "prompt": "",
+        "max_tokens": 150,
+        "temperature": 0.2
+      }
+    };
+
+    // Use provided template config or default to professional
+    const templateName = aiTemplateConfig?.ai_prompt_template || 'professional';
+    const template = templates[templateName] || templates['professional'];
+    
+    // If custom template and custom prompt provided, use it
+    if (templateName === 'custom' && aiTemplateConfig?.custom_ai_prompt) {
+      return {
+        ...template,
+        prompt: aiTemplateConfig.custom_ai_prompt
+      };
+    }
+    
+    return template;
+  }
+
+  // Build complete prompt with weather context if enabled
+  buildCompletePrompt(aiTemplateConfig = null, weatherContext = null) {
+    const template = this.getAIPrompt(aiTemplateConfig);
+    let prompt = template.prompt;
+    
+    // Add weather context if enabled and available
+    if (aiTemplateConfig?.enable_weather_context && weatherContext) {
+      const weatherInfo = `Current weather conditions: ${weatherContext.condition || 'unknown'}, ${weatherContext.temperature || 'unknown'}°C, humidity ${weatherContext.humidity || 'unknown'}%.`;
+      prompt += ` ${weatherInfo}`;
+    }
+    
+    return {
+      prompt,
+      max_tokens: template.max_tokens,
+      temperature: template.temperature
+    };
+  }
+
+  // Get weather context from visitor event
+  async getWeatherContext(visitorEventId) {
+    try {
+      const db = require('../config/database').getDatabase();
+      const stmt = db.prepare(`
+        SELECT weather_condition, weather_temperature, weather_humidity 
+        FROM doorbell_events 
+        WHERE id = ?
+      `);
+      const result = stmt.get(visitorEventId);
+      
+      if (result) {
+        return {
+          condition: result.weather_condition,
+          temperature: result.weather_temperature,
+          humidity: result.weather_humidity
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting weather context:', error);
+      return null;
+    }
   }
 
   async generateFaceEncoding(imageUrl, faceData) {
@@ -127,7 +216,7 @@ class OpenAIVisionProvider extends BaseAIProvider {
     };
   }
 
-  async detectFaces(imageUrl, visitorEventId = null) {
+  async detectFaces(imageUrl, visitorEventId = null, aiTemplateConfig = null) {
     if (!this.config.api_key) {
       throw new Error('OpenAI API key not configured');
     }
@@ -139,62 +228,17 @@ class OpenAIVisionProvider extends BaseAIProvider {
       // Handle image URL - convert local paths to accessible URLs
       const processedImageUrl = await this.processImageUrl(imageUrl);
       
-      const prompt = `You are a precise face detection system analyzing a doorbell camera image. Your task is to locate human faces with pixel-perfect accuracy.
-
-CRITICAL INSTRUCTIONS:
-1. EXAMINE THE IMAGE CAREFULLY: Look at every part of the image to find human faces
-2. MEASURE PRECISELY: When you find a face, measure its exact location as percentages of the image dimensions
-3. BE ACCURATE: Only provide coordinates if you can clearly see a face at that location
-4. NO GUESSING: If you cannot clearly identify a face location, do not provide coordinates
-
-FACE DETECTION REQUIREMENTS:
-- Look for human faces, heads, or partial faces in the image
-- Measure the bounding box that tightly contains the face/head area
-- Provide coordinates as percentages: x=left edge, y=top edge, width=face width, height=face height
-- Only report faces you can actually see and locate precisely
-- Confidence should reflect how clearly you can see the face (not a guess)
-
-COORDINATE ACCURACY:
-- x: percentage from left edge of image to left edge of face
-- y: percentage from top edge of image to top edge of face  
-- width: percentage width of the face area
-- height: percentage height of the face area
-- Example: A face in the center-right taking up 15% width and 20% height might be: {"x": 60, "y": 40, "width": 15, "height": 20}
-
-IMPORTANT: 
-- DO NOT use placeholder coordinates like (40,30) or (25,25) or similar round numbers
-- DO NOT guess face locations - only report what you can clearly see
-- If you cannot locate a face precisely, set faces_detected to 0
-
-Return ONLY valid JSON:
-{
-  "faces_detected": [number of faces you can actually locate],
-  "faces": [
-    {
-      "id": 1,
-      "bounding_box": {"x": [precise x%], "y": [precise y%], "width": [precise width%], "height": [precise height%]},
-      "confidence": [0-100 based on face clarity],
-      "description": "[describe the actual face you see]",
-      "quality": "[clear/good/fair/poor]",
-      "distinctive_features": ["actual", "features", "you", "observe"]
-    }
-  ],
-  "objects_detected": [
-    {
-      "object": "[object you see]",
-      "confidence": [0-100],
-      "description": "[describe what you see]"
-    }
-  ],
-  "scene_analysis": {
-    "overall_confidence": [your confidence in this analysis],
-    "description": "[describe what you observe]",
-    "lighting": "[lighting conditions]",
-    "image_quality": "[image quality assessment]"
-  }
-}
-
-If no faces can be precisely located, return faces_detected: 0 and empty faces array.`;
+      // Get weather context if available
+      const weatherContext = visitorEventId ? await this.getWeatherContext(visitorEventId) : null;
+      
+      // Build complete prompt with template configuration
+      const promptConfig = this.buildCompletePrompt(aiTemplateConfig, weatherContext);
+      
+      // Use the custom prompt from template configuration
+      const prompt = promptConfig.prompt;
+      
+      console.log(`Using AI template: ${aiTemplateConfig?.ai_prompt_template || 'professional'}`);
+      console.log(`Custom prompt: ${prompt.substring(0, 100)}...`);
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',

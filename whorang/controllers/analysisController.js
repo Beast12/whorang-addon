@@ -80,9 +80,10 @@ class AnalysisController {
   /**
    * Process analysis directly (for programmatic calls)
    * @param {number} visitor_id - ID of visitor to analyze
+   * @param {Object} aiTemplateConfig - AI template configuration
    * @returns {Promise<Object>} Analysis result
    */
-  static async processAnalysisDirectly(visitor_id) {
+  static async processAnalysisDirectly(visitor_id, aiTemplateConfig = null) {
     const db = require('../config/database').getDatabase();
     
     try {
@@ -130,7 +131,7 @@ class AnalysisController {
    * Process AI analysis for a visitor
    * @private
    */
-  static async _processVisitorAnalysis(visitor) {
+  static async _processVisitorAnalysis(visitor, aiTemplateConfig = null) {
     const db = require('../config/database').getDatabase();
     
     try {
@@ -165,8 +166,8 @@ class AnalysisController {
         cost_tracking_enabled: config?.cost_tracking_enabled
       });
       
-      // Perform AI analysis with timing
-      const analysisResults = await provider.detectFaces(visitor.image_url, visitor.id);
+      // Perform AI analysis with timing and template configuration
+      const analysisResults = await provider.detectFaces(visitor.image_url, visitor.id, aiTemplateConfig);
       
       // Calculate total processing time
       const totalProcessingTime = Date.now() - analysisStartTime;
