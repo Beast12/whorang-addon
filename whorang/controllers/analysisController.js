@@ -10,7 +10,17 @@ class AnalysisController {
     const db = require('../config/database').getDatabase();
     
     try {
-      const { visitor_id } = req.body;
+      const { visitor_id, ai_prompt_template, custom_ai_prompt, enable_weather_context } = req.body;
+      
+      // Extract AI template configuration from request
+      const aiTemplateConfig = {
+        ai_prompt_template: ai_prompt_template || 'professional',
+        custom_ai_prompt: custom_ai_prompt || '',
+        enable_weather_context: enable_weather_context !== false
+      };
+      
+      console.log(`🎯 Analysis trigger with AI template: ${aiTemplateConfig.ai_prompt_template}`);
+      
       let targetVisitor;
       
       // Get the visitor to analyze
@@ -58,10 +68,10 @@ class AnalysisController {
         processing: true
       });
       
-      // Process analysis asynchronously
+      // Process analysis asynchronously with AI template configuration
       setImmediate(async () => {
         try {
-          await AnalysisController._processVisitorAnalysis(targetVisitor);
+          await AnalysisController._processVisitorAnalysis(targetVisitor, aiTemplateConfig);
         } catch (error) {
           console.error(`Failed to process analysis for visitor ${targetVisitor.id}:`, error);
         }
