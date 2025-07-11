@@ -1497,12 +1497,18 @@ class GoogleGeminiProvider extends BaseAIProvider {
       const promptConfig = this.buildCompletePrompt(aiTemplateConfig, weatherContext);
       
       // Use the custom prompt from template configuration
-      const prompt = promptConfig.prompt;
+      let prompt = promptConfig.prompt;
       
       console.log(`Using AI template: ${aiTemplateConfig?.ai_prompt_template || 'professional'}`);
       console.log(`Custom prompt: ${prompt.substring(0, 100)}...`);
 
-      const defaultPrompt = `Analyze this doorbell camera image and provide a comprehensive analysis. Look carefully at what you actually see in the image.
+      // For custom templates (non-professional), use the prompt directly without JSON requirement
+      if (aiTemplateConfig?.ai_prompt_template && aiTemplateConfig.ai_prompt_template !== 'professional') {
+        console.log(`Using direct response mode for template: ${aiTemplateConfig.ai_prompt_template}`);
+        // Use the custom prompt as-is for direct text response
+      } else {
+        // For professional template, add JSON structure requirement
+        prompt = `Analyze this doorbell camera image and provide a comprehensive analysis. Look carefully at what you actually see in the image.
 
 INSTRUCTIONS:
 1. FACE DETECTION: Identify all human faces visible in the image. For each face, provide:
@@ -1547,6 +1553,7 @@ Return ONLY valid JSON in this structure:
 }
 
 If no faces are detected, set faces_detected to 0 and faces to empty array. Always include objects_detected and scene_analysis based on what you actually observe.`;
+      }
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.config.api_key}`, {
         method: 'POST',
