@@ -97,6 +97,19 @@ class BaseAIProvider {
     }
   }
 
+  // Get template title based on template name
+  getTemplateTitle(templateName) {
+    const titles = {
+      "professional": "🔒 Security Alert",
+      "friendly": "👋 Visitor Alert", 
+      "sarcastic": "🚪 Sarcastic Security Alert",
+      "detailed": "📊 Detailed Analysis",
+      "custom": "🎯 Custom Alert"
+    };
+    
+    return titles[templateName] || "🚪 Doorbell Alert";
+  }
+
   async generateFaceEncoding(imageUrl, faceData) {
     throw new Error('generateFaceEncoding method must be implemented');
   }
@@ -261,8 +274,8 @@ class OpenAIVisionProvider extends BaseAIProvider {
               }
             }]
           }],
-          max_tokens: 1000,
-          temperature: 0.1 // Low temperature for consistent results
+          max_tokens: promptConfig.max_tokens || 1000,
+          temperature: promptConfig.temperature || 0.1
         })
       });
 
@@ -289,6 +302,14 @@ class OpenAIVisionProvider extends BaseAIProvider {
       // Parse and validate the response
       const content = data.choices[0].message.content;
       const result = this.parseOpenAIResponse(content);
+      
+      // If using a custom template, use the AI response as the analysis message
+      if (aiTemplateConfig?.ai_prompt_template && aiTemplateConfig.ai_prompt_template !== 'professional') {
+        // For custom templates, use the AI's response directly as the analysis message
+        result.ai_message = content.trim();
+        result.ai_title = this.getTemplateTitle(aiTemplateConfig.ai_prompt_template);
+        console.log(`Using custom AI response for template '${aiTemplateConfig.ai_prompt_template}': ${result.ai_message.substring(0, 100)}...`);
+      }
       
       console.log(`OpenAI ${model} face detection completed in ${processingTime}ms`);
       return result;

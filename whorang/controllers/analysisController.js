@@ -111,8 +111,8 @@ class AnalysisController {
       
       console.log(`Processing direct analysis for visitor ${targetVisitor.id}`);
       
-      // Process analysis using existing private method
-      const result = await AnalysisController._processVisitorAnalysis(targetVisitor);
+      // Process analysis using existing private method with AI template config
+      const result = await AnalysisController._processVisitorAnalysis(targetVisitor, aiTemplateConfig);
       
       return {
         success: true,
