@@ -1478,7 +1478,7 @@ class GoogleGeminiProvider extends BaseAIProvider {
     };
   }
 
-  async detectFaces(imageUrl, visitorEventId = null) {
+  async detectFaces(imageUrl, visitorEventId = null, aiTemplateConfig = null) {
     if (!this.config.api_key) {
       throw new Error('Google Gemini API key not configured');
     }
@@ -1490,7 +1490,19 @@ class GoogleGeminiProvider extends BaseAIProvider {
       // Convert image to base64 if needed
       const imageBase64 = await this.convertImageToBase64(imageUrl);
 
-      const prompt = `Analyze this doorbell camera image and provide a comprehensive analysis. Look carefully at what you actually see in the image.
+      // Get weather context if available
+      const weatherContext = visitorEventId ? await this.getWeatherContext(visitorEventId) : null;
+      
+      // Build complete prompt with template configuration
+      const promptConfig = this.buildCompletePrompt(aiTemplateConfig, weatherContext);
+      
+      // Use the custom prompt from template configuration
+      const prompt = promptConfig.prompt;
+      
+      console.log(`Using AI template: ${aiTemplateConfig?.ai_prompt_template || 'professional'}`);
+      console.log(`Custom prompt: ${prompt.substring(0, 100)}...`);
+
+      const defaultPrompt = `Analyze this doorbell camera image and provide a comprehensive analysis. Look carefully at what you actually see in the image.
 
 INSTRUCTIONS:
 1. FACE DETECTION: Identify all human faces visible in the image. For each face, provide:
@@ -1582,6 +1594,14 @@ If no faces are detected, set faces_detected to 0 and faces to empty array. Alwa
       // Parse and validate the response
       const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       const result = this.parseGeminiResponse(content);
+      
+      // If using a custom template, use the AI response as the analysis message
+      if (aiTemplateConfig?.ai_prompt_template && aiTemplateConfig.ai_prompt_template !== 'professional') {
+        // For custom templates, use the AI's response directly as the analysis message
+        result.ai_message = content.trim();
+        result.ai_title = this.getTemplateTitle(aiTemplateConfig.ai_prompt_template);
+        console.log(`Using custom AI response for template '${aiTemplateConfig.ai_prompt_template}': ${result.ai_message.substring(0, 100)}...`);
+      }
       
       console.log(`Gemini ${model} face detection completed in ${processingTime}ms`);
       return result;
