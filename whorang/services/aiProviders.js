@@ -1600,18 +1600,34 @@ If no faces are detected, set faces_detected to 0 and faces to empty array. Alwa
 
       // Parse and validate the response
       const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      const result = this.parseGeminiResponse(content);
       
-      // If using a custom template, use the AI response as the analysis message
+      // CRITICAL FIX: For custom templates, use the AI response directly as the analysis message
       if (aiTemplateConfig?.ai_prompt_template && aiTemplateConfig.ai_prompt_template !== 'professional') {
         // For custom templates, use the AI's response directly as the analysis message
-        result.ai_message = content.trim();
-        result.ai_title = this.getTemplateTitle(aiTemplateConfig.ai_prompt_template);
-        console.log(`Using custom AI response for template '${aiTemplateConfig.ai_prompt_template}': ${result.ai_message.substring(0, 100)}...`);
+        console.log(`🎯 Using custom AI response for template '${aiTemplateConfig.ai_prompt_template}': ${content.trim().substring(0, 100)}...`);
+        
+        const result = {
+          faces_detected: 0,
+          faces: [],
+          objects_detected: [],
+          scene_analysis: {
+            overall_confidence: 85,
+            description: content.trim(),
+            lighting: 'unknown',
+            image_quality: 'good'
+          },
+          ai_message: content.trim(),  // This is the key fix!
+          ai_title: this.getTemplateTitle(aiTemplateConfig.ai_prompt_template)
+        };
+        
+        console.log(`Gemini ${model} custom template completed in ${processingTime}ms`);
+        return result;
+      } else {
+        // For professional template, parse as JSON
+        const result = this.parseGeminiResponse(content);
+        console.log(`Gemini ${model} professional template completed in ${processingTime}ms`);
+        return result;
       }
-      
-      console.log(`Gemini ${model} face detection completed in ${processingTime}ms`);
-      return result;
 
     } catch (error) {
       const processingTime = Date.now() - startTime;
