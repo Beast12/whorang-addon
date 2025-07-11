@@ -1,0 +1,29 @@
+# WhoRang Doorbell Simulation Action
+# Use this in Home Assistant Developer Tools → Actions → YAML Mode
+
+# NEW: Complete doorbell event simulation (replaces rest_command.doorbell_webhook)
+action: whorang.process_doorbell_event
+data:
+  image_url: "http://192.168.86.162:8123/local/doorbell_snapshot_1749552024.jpg"
+  ai_message: "A person is standing at the front door"
+  ai_title: "Visitor Detected"
+  weather_temp: 20
+  weather_humidity: 50
+  weather_condition: "clear"
+  wind_speed: 5
+  pressure: 1013
+
+# Alternative: Simple webhook test (no image data)
+# action: whorang.test_webhook
+# data: {}
+
+# Alternative: Button press (basic test)
+# action: button.press
+# target:
+#   entity_id: button.whorang_ai_doorbell_test_webhook
+# data: {}
+
+# Alternative: Trigger analysis only (requires existing visitor)
+# action: whorang.trigger_analysis
+# data:
+#   visitor_id: "optional-visitor-id"
