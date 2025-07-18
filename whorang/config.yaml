@@ -83,7 +83,7 @@ map:
 
 backup: hot
 
-image: "ghcr.io/beast12/whorang-addon-{arch}"
+image: "ghcr.io/beast12/whorang-backend"
 
 url: "https://github.com/Beast12/whorang-addon"
 codenotary: "notary@beast12.dev"
