@@ -10,7 +10,17 @@ class AnalysisController {
     const db = require('../config/database').getDatabase();
     
     try {
-      const { visitor_id } = req.body;
+      const { visitor_id, ai_prompt_template, custom_ai_prompt, enable_weather_context } = req.body;
+      
+      // Extract AI template configuration from request
+      const aiTemplateConfig = {
+        ai_prompt_template: ai_prompt_template || 'professional',
+        custom_ai_prompt: custom_ai_prompt || '',
+        enable_weather_context: enable_weather_context !== false
+      };
+      
+      console.log(`🎯 Analysis trigger with AI template: ${aiTemplateConfig.ai_prompt_template}`);
+      
       let targetVisitor;
       
       // Get the visitor to analyze
@@ -58,10 +68,10 @@ class AnalysisController {
         processing: true
       });
       
-      // Process analysis asynchronously
+      // Process analysis asynchronously with AI template configuration
       setImmediate(async () => {
         try {
-          await AnalysisController._processVisitorAnalysis(targetVisitor);
+          await AnalysisController._processVisitorAnalysis(targetVisitor, aiTemplateConfig);
         } catch (error) {
           console.error(`Failed to process analysis for visitor ${targetVisitor.id}:`, error);
         }
@@ -80,9 +90,10 @@ class AnalysisController {
   /**
    * Process analysis directly (for programmatic calls)
    * @param {number} visitor_id - ID of visitor to analyze
+   * @param {Object} aiTemplateConfig - AI template configuration
    * @returns {Promise<Object>} Analysis result
    */
-  static async processAnalysisDirectly(visitor_id) {
+  static async processAnalysisDirectly(visitor_id, aiTemplateConfig = null) {
     const db = require('../config/database').getDatabase();
     
     try {
@@ -110,8 +121,8 @@ class AnalysisController {
       
       console.log(`Processing direct analysis for visitor ${targetVisitor.id}`);
       
-      // Process analysis using existing private method
-      const result = await AnalysisController._processVisitorAnalysis(targetVisitor);
+      // Process analysis using existing private method with AI template config
+      const result = await AnalysisController._processVisitorAnalysis(targetVisitor, aiTemplateConfig);
       
       return {
         success: true,
@@ -130,7 +141,7 @@ class AnalysisController {
    * Process AI analysis for a visitor
    * @private
    */
-  static async _processVisitorAnalysis(visitor) {
+  static async _processVisitorAnalysis(visitor, aiTemplateConfig = null) {
     const db = require('../config/database').getDatabase();
     
     try {
@@ -165,8 +176,8 @@ class AnalysisController {
         cost_tracking_enabled: config?.cost_tracking_enabled
       });
       
-      // Perform AI analysis with timing
-      const analysisResults = await provider.detectFaces(visitor.image_url, visitor.id);
+      // Perform AI analysis with timing and template configuration
+      const analysisResults = await provider.detectFaces(visitor.image_url, visitor.id, aiTemplateConfig);
       
       // Calculate total processing time
       const totalProcessingTime = Date.now() - analysisStartTime;
