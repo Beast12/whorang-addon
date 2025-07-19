@@ -1,6 +1,9 @@
 # Multi-stage build for backend with integrated nginx
 FROM node:22-alpine AS builder
 
+# Build arguments
+ARG BUILD_VERSION=1.1.0
+
 WORKDIR /app
 
 # Install build dependencies for native modules and canvas dependencies
@@ -27,6 +30,9 @@ RUN npm install
 
 # Production stage with nginx
 FROM node:22-alpine
+
+# Build arguments
+ARG BUILD_VERSION=1.1.0
 
 WORKDIR /app
 
@@ -65,6 +71,12 @@ RUN chmod +x /entrypoint.sh
 
 # Set ownership of the app directory (except volumes which will be handled by entrypoint)
 RUN chown -R node:node /app
+
+# Add Home Assistant add-on labels
+LABEL \
+    io.hass.version="${BUILD_VERSION}" \
+    io.hass.type="addon" \
+    io.hass.arch="armhf|armv7|aarch64|amd64|i386"
 
 # Expose port 80 (nginx will serve on port 80)
 EXPOSE 80
