@@ -171,6 +171,34 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Directory status endpoint for debugging upload issues
+app.get('/api/debug/directories', (req, res) => {
+  try {
+    const directoryManager = require('./utils/directoryManager');
+    const uploadMiddleware = require('./middleware/upload');
+    
+    const status = {
+      timestamp: new Date().toISOString(),
+      directoryManager: directoryManager.getStatus(),
+      uploadMiddleware: uploadMiddleware.getStatus ? uploadMiddleware.getStatus() : 'Status not available',
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        UPLOADS_PATH: process.env.UPLOADS_PATH,
+        DATA_UPLOADS_WRITABLE: process.env.DATA_UPLOADS_WRITABLE
+      }
+    };
+    
+    res.status(200).json(status);
+  } catch (error) {
+    console.error('Error getting directory status:', error);
+    res.status(500).json({ 
+      error: 'Failed to get directory status',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Enhanced error handling for production
 app.use((err, req, res, next) => {
   console.error('Server error:', err);

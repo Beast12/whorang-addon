@@ -6,26 +6,35 @@ const uploadPaths = require('../utils/uploadPaths');
 
 class FaceCroppingServiceSharp {
   constructor() {
+    // Import DirectoryManager for robust directory handling
+    this.directoryManager = require('../utils/directoryManager');
+    
     this.uploadsDir = uploadPaths.getBaseUploadPath();
     this.facesDir = uploadPaths.getFacesUploadPath();
     this.thumbnailsDir = uploadPaths.getThumbnailsUploadPath();
     
-    // Ensure directories exist
+    // Ensure directories exist with DirectoryManager integration
     this.ensureDirectories();
   }
 
   async ensureDirectories() {
     try {
-      await fs.mkdir(this.uploadsDir, { recursive: true });
-      await fs.mkdir(this.facesDir, { recursive: true });
-      await fs.mkdir(this.thumbnailsDir, { recursive: true });
+      // Use DirectoryManager for robust directory creation
+      await this.directoryManager.ensureDirectory();
+      await this.directoryManager.ensureDirectory('faces');
+      await this.directoryManager.ensureDirectory('thumbnails');
+      
+      // Update paths to use DirectoryManager results
+      this.uploadsDir = uploadPaths.getBaseUploadPath();
+      this.facesDir = uploadPaths.getFacesUploadPath();
+      this.thumbnailsDir = uploadPaths.getThumbnailsUploadPath();
       
       // Verify directories were created and are writable
       await this.validateDirectories();
       
-      console.log('Sharp face cropping directories ensured and validated');
+      console.log('✅ Sharp face cropping directories ensured and validated via DirectoryManager');
     } catch (error) {
-      console.error('CRITICAL ERROR: Failed to create Sharp face cropping directories:', error);
+      console.error('❌ CRITICAL ERROR: Failed to create Sharp face cropping directories:', error);
       throw error; // Re-throw to prevent silent failures
     }
   }

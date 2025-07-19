@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2025-01-19
+
+### Fixed
+- **Critical**: Fixed Home Assistant addon permission issues causing startup failures
+- Resolved EACCES permission denied errors when creating upload directories
+- Fixed addon failing to start in restricted permission environments
+
+### Added
+- New DirectoryManager utility with 3-level fallback system
+- Comprehensive directory permission testing and validation
+- Debug endpoint `/api/debug/directories` for real-time status monitoring
+- Test script `test_directory_permissions.js` for troubleshooting
+- Complete documentation in `PERMISSION_FIXES_README.md`
+
+### Changed
+- Enhanced Docker entrypoint with permission testing and fallback logic
+- Completely rewritten upload middleware with robust error handling
+- Updated all face cropping services to use DirectoryManager
+- Improved upload path management with automatic fallback support
+- Enhanced Dockerfile to pre-create directory structures
+
+### Technical Improvements
+- 3-level directory fallback: `/data/uploads` → `/app/uploads` → `./uploads`
+- Write permission testing before directory usage
+- Caching system for improved performance
+- Comprehensive logging for debugging permission issues
+- Graceful fallback handling for various Home Assistant configurations
+
+## [1.1.0] - 2025-01-01
+
 ### Added
 - Multi-architecture Docker image support (amd64, arm64, arm/v7)
 - Automated Docker image building and publishing to GitHub Container Registry

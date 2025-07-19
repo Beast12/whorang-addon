@@ -8,9 +8,8 @@ const path = require('path');
 
 class FaceCroppingServiceLite {
   constructor() {
-    this.uploadsDir = path.join(__dirname, '../uploads');
-    this.facesDir = path.join(this.uploadsDir, 'faces');
-    this.thumbnailsDir = path.join(this.uploadsDir, 'thumbnails');
+    // Import DirectoryManager for robust directory handling
+    this.directoryManager = require('../utils/directoryManager');
     
     // Check if canvas is available
     this.canvasAvailable = this.checkCanvasAvailability();
@@ -21,8 +20,8 @@ class FaceCroppingServiceLite {
       console.log('Canvas not available - using lite face processing mode');
     }
     
-    // Ensure directories exist
-    this.ensureDirectories();
+    // Initialize directories using DirectoryManager
+    this.initializeDirectories();
   }
 
   checkCanvasAvailability() {
@@ -34,14 +33,43 @@ class FaceCroppingServiceLite {
     }
   }
 
-  async ensureDirectories() {
+  async initializeDirectories() {
     try {
-      await fs.mkdir(this.uploadsDir, { recursive: true });
-      await fs.mkdir(this.facesDir, { recursive: true });
-      await fs.mkdir(this.thumbnailsDir, { recursive: true });
-      console.log('Face cropping directories ensured');
+      // Use DirectoryManager for robust directory creation
+      const baseResult = await this.directoryManager.ensureDirectory();
+      const facesResult = await this.directoryManager.ensureDirectory('faces');
+      const thumbnailsResult = await this.directoryManager.ensureDirectory('thumbnails');
+      
+      this.uploadsDir = baseResult.path;
+      this.facesDir = facesResult.path;
+      this.thumbnailsDir = thumbnailsResult.path;
+      
+      console.log('✅ Face cropping service lite initialized:');
+      console.log(`  Uploads: ${this.uploadsDir} (fallback: ${baseResult.usedFallback})`);
+      console.log(`  Faces: ${this.facesDir} (fallback: ${facesResult.usedFallback})`);
+      console.log(`  Thumbnails: ${this.thumbnailsDir} (fallback: ${thumbnailsResult.usedFallback})`);
     } catch (error) {
-      console.error('Error creating face cropping directories:', error);
+      console.error('❌ Error initializing face cropping lite directories:', error);
+      
+      // Fallback to relative paths
+      this.uploadsDir = path.join(__dirname, '../uploads');
+      this.facesDir = path.join(this.uploadsDir, 'faces');
+      this.thumbnailsDir = path.join(this.uploadsDir, 'thumbnails');
+      
+      console.log('⚠️  Using fallback relative paths for face cropping service lite');
+    }
+  }
+
+  async ensureDirectories() {
+    // Legacy method - now uses DirectoryManager
+    try {
+      await this.directoryManager.ensureDirectory();
+      await this.directoryManager.ensureDirectory('faces');
+      await this.directoryManager.ensureDirectory('thumbnails');
+      console.log('Face cropping lite directories ensured via DirectoryManager');
+    } catch (error) {
+      console.error('Error ensuring face cropping lite directories:', error);
+      throw error;
     }
   }
 
