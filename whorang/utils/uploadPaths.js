@@ -1,40 +1,62 @@
 const path = require('path');
+const directoryManager = require('./directoryManager');
 
 /**
  * Centralized upload path configuration
- * Uses UPLOADS_PATH environment variable or defaults to 'uploads'
+ * Now integrates with DirectoryManager for robust path handling
  */
 class UploadPaths {
   constructor() {
-    this.baseUploadPath = process.env.UPLOADS_PATH || 'uploads';
+    this.baseUploadPath = process.env.UPLOADS_PATH || '/data/uploads';
+    this.directoryManager = directoryManager;
   }
 
   /**
-   * Get the base upload directory path
+   * Get the base upload directory path (with fallback support)
    */
   getBaseUploadPath() {
-    return this.baseUploadPath;
+    try {
+      return this.directoryManager.getPath();
+    } catch (error) {
+      console.warn('Failed to get base upload path, using configured path:', error.message);
+      return this.baseUploadPath;
+    }
   }
 
   /**
-   * Get the faces upload directory path
+   * Get the faces upload directory path (with fallback support)
    */
   getFacesUploadPath() {
-    return path.join(this.baseUploadPath, 'faces');
+    try {
+      return this.directoryManager.getFacesPath();
+    } catch (error) {
+      console.warn('Failed to get faces upload path, using fallback:', error.message);
+      return path.join(this.baseUploadPath, 'faces');
+    }
   }
 
   /**
-   * Get the thumbnails upload directory path
+   * Get the thumbnails upload directory path (with fallback support)
    */
   getThumbnailsUploadPath() {
-    return path.join(this.baseUploadPath, 'thumbnails');
+    try {
+      return this.directoryManager.getThumbnailsPath();
+    } catch (error) {
+      console.warn('Failed to get thumbnails upload path, using fallback:', error.message);
+      return path.join(this.baseUploadPath, 'thumbnails');
+    }
   }
 
   /**
-   * Get the temp upload directory path
+   * Get the temp upload directory path (with fallback support)
    */
   getTempUploadPath() {
-    return path.join(this.baseUploadPath, 'temp');
+    try {
+      return this.directoryManager.getTempPath();
+    } catch (error) {
+      console.warn('Failed to get temp upload path, using fallback:', error.message);
+      return path.join(this.baseUploadPath, 'temp');
+    }
   }
 
   /**

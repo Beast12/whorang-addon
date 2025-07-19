@@ -1,25 +1,53 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { createCanvas, loadImage } = require('canvas');
+const directoryManager = require('../utils/directoryManager');
 
 class FaceCroppingService {
   constructor() {
-    this.uploadsDir = path.join(__dirname, '../uploads');
-    this.facesDir = path.join(this.uploadsDir, 'faces');
-    this.thumbnailsDir = path.join(this.uploadsDir, 'thumbnails');
+    this.directoryManager = directoryManager;
     
-    // Ensure directories exist
-    this.ensureDirectories();
+    // Initialize directory paths using DirectoryManager
+    this.initializeDirectories();
+  }
+
+  async initializeDirectories() {
+    try {
+      // Use DirectoryManager for robust directory creation
+      const baseResult = await this.directoryManager.ensureDirectory();
+      const facesResult = await this.directoryManager.ensureDirectory('faces');
+      const thumbnailsResult = await this.directoryManager.ensureDirectory('thumbnails');
+      
+      this.uploadsDir = baseResult.path;
+      this.facesDir = facesResult.path;
+      this.thumbnailsDir = thumbnailsResult.path;
+      
+      console.log('✅ Face cropping service initialized:');
+      console.log(`  Uploads: ${this.uploadsDir} (fallback: ${baseResult.usedFallback})`);
+      console.log(`  Faces: ${this.facesDir} (fallback: ${facesResult.usedFallback})`);
+      console.log(`  Thumbnails: ${this.thumbnailsDir} (fallback: ${thumbnailsResult.usedFallback})`);
+    } catch (error) {
+      console.error('❌ Error initializing face cropping directories:', error);
+      
+      // Fallback to relative paths
+      this.uploadsDir = path.join(__dirname, '../uploads');
+      this.facesDir = path.join(this.uploadsDir, 'faces');
+      this.thumbnailsDir = path.join(this.uploadsDir, 'thumbnails');
+      
+      console.log('⚠️  Using fallback relative paths for face cropping service');
+    }
   }
 
   async ensureDirectories() {
+    // Legacy method - now uses DirectoryManager
     try {
-      await fs.mkdir(this.uploadsDir, { recursive: true });
-      await fs.mkdir(this.facesDir, { recursive: true });
-      await fs.mkdir(this.thumbnailsDir, { recursive: true });
-      console.log('Face cropping directories ensured');
+      await this.directoryManager.ensureDirectory();
+      await this.directoryManager.ensureDirectory('faces');
+      await this.directoryManager.ensureDirectory('thumbnails');
+      console.log('Face cropping directories ensured via DirectoryManager');
     } catch (error) {
-      console.error('Error creating face cropping directories:', error);
+      console.error('Error ensuring face cropping directories:', error);
+      throw error;
     }
   }
 
