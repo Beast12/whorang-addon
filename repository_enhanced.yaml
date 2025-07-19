@@ -1,0 +1,27 @@
+name: "WhoRang AI Doorbell Add-on Repository"
+url: "https://github.com/Beast12/whorang-addon"
+maintainer: "Beast12"
+
+# Cache-busting techniques for Home Assistant Supervisor
+# These help force cache invalidation when versions change
+description: "AI-powered doorbell backend with face recognition and multi-provider AI analysis - Updated 2025-07-19"
+last_updated: "2025-07-19T12:47:00Z"
+
+# Additional metadata to help with cache invalidation
+repository_version: "1.1.0"
+build_date: "2025-07-19"
+
+# Optional: Add specific add-on metadata
+addons:
+  whorang:
+    name: "WhoRang AI Doorbell Backend"
+    version: "1.1.0"
+    description: "AI-powered doorbell backend with face recognition and multi-provider AI analysis"
+    url: "https://github.com/Beast12/whorang-addon/tree/main/whorang"
+    image: "ghcr.io/beast12/whorang-backend"
+    arch:
+      - armhf
+      - armv7
+      - aarch64
+      - amd64
+      - i386
