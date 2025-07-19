@@ -1,6 +1,6 @@
 name: "WhoRang AI Doorbell Backend"
 description: "AI-powered doorbell backend with face recognition and multi-provider AI analysis"
-version: "1.1.0"
+version: "1.1.1"
 slug: "whorang"
 init: false
 arch:

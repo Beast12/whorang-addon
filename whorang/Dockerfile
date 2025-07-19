@@ -2,7 +2,7 @@
 FROM node:22-alpine AS builder
 
 # Build arguments
-ARG BUILD_VERSION=1.1.0
+ARG BUILD_VERSION=1.1.1
 
 WORKDIR /app
 
@@ -32,7 +32,7 @@ RUN npm install
 FROM node:22-alpine
 
 # Build arguments
-ARG BUILD_VERSION=1.1.0
+ARG BUILD_VERSION=1.1.1
 
 WORKDIR /app
 
