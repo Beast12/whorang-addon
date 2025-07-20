@@ -44,6 +44,22 @@ The WhoRang AI Doorbell Backend is the core processing engine that powers the [W
 
 ## 🎉 Recent Major Improvements
 
+### ✅ **v1.1.2: Database & Data Persistence - CRITICAL FIXES RESOLVED**
+**Problem Solved**: Critical database startup failures and complete data loss on addon restarts
+**Solution**: Comprehensive database fallback system and proper data persistence configuration
+
+**Critical Fixes**:
+- **Database Startup Failures**: Fixed `SQLITE_CANTOPEN` errors preventing addon startup
+- **Data Loss Prevention**: Added missing `/data` volume mapping - users no longer lose face recognition data
+- **Enterprise-Grade Persistence**: All face assignments, person data, and visitor history now persist across restarts
+- **Fallback System**: Addon works reliably even in restricted permission environments
+
+**Technical Improvements**:
+- **DatabaseManager Utility**: Intelligent database path resolution with fallback support
+- **Persistence Monitoring**: Real-time status monitoring via `/api/debug/directories` endpoint
+- **Comprehensive Testing**: New test script for validating database and persistence functionality
+- **Clear Warnings**: Users know when data is temporary vs persistent with detailed logging
+
 ### ✅ **Face Cropping System - COMPLETELY FIXED**
 **Problem Solved**: Face cropping pipeline was completely broken - no face files were being created
 **Solution**: Intelligent coordinate format detection and robust file validation
@@ -123,11 +139,16 @@ The WhoRang AI Doorbell Backend is the core processing engine that powers the [W
 
 **Best for**: Users running Home Assistant in Docker or Core installations
 
-**Note**: Add-ons are not available for Container/Core installations. Use Docker Compose instead.
+**⚠️ CRITICAL**: Add-ons are not available for Container/Core installations. Use Docker Compose instead.
+
+**🔒 Data Persistence Requirements**: 
+- **MUST** map `/data` volume for persistent storage
+- **Without volume mapping**: All face recognition data will be lost on container restart
+- **With volume mapping**: Data persists across restarts and system reboots
 
 1. **Option A: Docker Run Command**:
    ```bash
-   # Create data directories
+   # Create data directories (REQUIRED for persistence)
    mkdir -p whorang-data whorang-ssl
    
    # Run WhoRang backend container
@@ -135,7 +156,7 @@ The WhoRang AI Doorbell Backend is the core processing engine that powers the [W
      --name whorang-backend \
      --restart unless-stopped \
      -p 3001:3001 \
-     -v $(pwd)/whorang-data:/data \
+     -v $(pwd)/whorang-data:/data \  # ← CRITICAL: Required for data persistence
      -v $(pwd)/whorang-ssl:/ssl \
      -e NODE_ENV=production \
      -e PORT=3001 \
@@ -150,7 +171,7 @@ The WhoRang AI Doorbell Backend is the core processing engine that powers the [W
    # Check container status
    docker ps
    
-   # View logs
+   # View logs for persistence status
    docker logs -f whorang-backend
    ```
 
@@ -165,13 +186,14 @@ The WhoRang AI Doorbell Backend is the core processing engine that powers the [W
        ports:
          - "3001:3001"
        volumes:
-         - ./whorang-data:/data
-         - ./whorang-ssl:/ssl
+         # CRITICAL: These volume mappings ensure data persistence
+         - ./whorang-data:/data          # ← Database and uploads persist here
+         - ./whorang-ssl:/ssl            # ← SSL certificates
        environment:
          - NODE_ENV=production
          - PORT=3001
-         - DATABASE_PATH=/data/whorang.db
-         - UPLOADS_PATH=/data/uploads
+         - DATABASE_PATH=/data/whorang.db    # ← Points to persistent volume
+         - UPLOADS_PATH=/data/uploads        # ← Points to persistent volume
          - AI_PROVIDER=local
          - LOG_LEVEL=info
          - WEBSOCKET_ENABLED=true
@@ -187,23 +209,45 @@ The WhoRang AI Doorbell Backend is the core processing engine that powers the [W
 
    **Start the Service**:
    ```bash
-   # Create directories
+   # Create directories (REQUIRED for persistence)
    mkdir -p whorang-data whorang-ssl
    
    # Start the container
    docker-compose up -d
    
-   # Check logs
+   # Check logs for persistence status
    docker-compose logs -f whorang
    ```
 
-3. **Verify Installation**:
+3. **Verify Installation & Data Persistence**:
    ```bash
    # Test health endpoint
    curl http://localhost:3001/api/health
    
-   # Should return: {"status":"healthy","version":"1.0.0"}
+   # Check data persistence status (NEW in v1.1.2)
+   curl http://localhost:3001/api/debug/directories
+   
+   # Look for these success indicators in logs:
+   # ✅ Database will use primary path: /data/whorang.db
+   # ✅ Directory ensured (sync): /data/uploads/faces
+   # Database persistent: ✅ YES
+   # Uploads persistent: ✅ YES
    ```
+
+4. **⚠️ Troubleshooting Data Persistence**:
+   
+   **If you see these warnings in logs**:
+   ```
+   ⚠️ Database will use fallback path: /app/whorang.db
+   ⚠️ WARNING: Database is using temporary storage - data will be lost on restart!
+   Database persistent: ❌ NO
+   ```
+   
+   **Solution**: Ensure volume mapping is correct:
+   - Check that `./whorang-data` directory exists
+   - Verify volume mapping: `-v $(pwd)/whorang-data:/data`
+   - Restart container after fixing volume mapping
+   - Check debug endpoint: `curl http://localhost:3001/api/debug/directories`
 
 #### 🔧 Manual Installation (Advanced)
 
@@ -472,19 +516,86 @@ Check that all entities are created and updating:
 
 ### Common Issues
 
+#### Database & Data Persistence Issues (v1.1.2+)
+
+**🚨 Critical**: Database startup failures or data loss issues
+
+1. **Database Won't Start (`SQLITE_CANTOPEN` Error)**:
+   
+   **Symptoms**:
+   ```
+   Error opening database: SqliteError: unable to open database file
+   SQLITE_CANTOPEN
+   ```
+   
+   **Solutions**:
+   - **HassOS/Supervised**: Restart the addon - the DatabaseManager will use fallback automatically
+   - **Docker/Container**: Ensure volume mapping is correct: `-v ./whorang-data:/data`
+   - **Check Status**: Use debug endpoint: `curl http://localhost:3001/api/debug/directories`
+
+2. **Data Loss After Restart**:
+   
+   **Symptoms**:
+   - Face recognition data disappears after addon/container restart
+   - Person assignments are lost
+   - Visitor history is empty
+   
+   **Root Cause**: Data is using temporary storage instead of persistent storage
+   
+   **Solutions**:
+   - **HassOS/Supervised**: Update to v1.1.2+ (includes automatic `data:rw` volume mapping)
+   - **Docker/Container**: Add volume mapping: `-v ./whorang-data:/data`
+   - **Verify Fix**: Check logs for `Database persistent: ✅ YES`
+
+3. **Temporary Storage Warnings**:
+   
+   **Warning Messages**:
+   ```
+   ⚠️ Database will use fallback path: /app/whorang.db
+   ⚠️ WARNING: Database is using temporary storage - data will be lost on restart!
+   Database persistent: ❌ NO
+   ```
+   
+   **Solutions**:
+   - **HassOS/Supervised**: Update addon to v1.1.2+ and restart
+   - **Docker/Container**: Fix volume mapping and restart container
+   - **Manual**: Ensure `/data` directory is writable
+
+4. **Validate Data Persistence**:
+   
+   **Check Persistence Status**:
+   ```bash
+   # Test the debug endpoint
+   curl http://localhost:3001/api/debug/directories
+   
+   # Look for these success indicators:
+   # "isPersistent": true (database)
+   # "isDataWritable": true (uploads)
+   # "persistenceWarnings": [] (empty array)
+   ```
+   
+   **Run Test Script** (if accessible):
+   ```bash
+   # Inside container or local installation
+   node test_database_permissions.js
+   ```
+
 #### Add-on Won't Start
 
 1. **Check Logs**:
    - Review add-on logs for error messages
    - Look for port conflicts or permission issues
+   - Check for database permission errors
 
 2. **Resource Issues**:
    - Ensure sufficient RAM (minimum 2GB)
    - Check available storage space
+   - Verify `/data` directory permissions
 
 3. **Configuration Issues**:
    - Verify configuration syntax
    - Check file paths and permissions
+   - Ensure volume mappings are correct (Docker)
 
 #### Integration Can't Connect
 
