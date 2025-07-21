@@ -1,19 +1,42 @@
 const Database = require('better-sqlite3');
 const { v4: uuidv4 } = require('uuid');
-
-const DATABASE_PATH = process.env.DATABASE_PATH || './doorbell.db';
+const databaseManager = require('../utils/databaseManager');
 
 let db;
 
 function initializeDatabase() {
   try {
-    db = new Database(DATABASE_PATH);
-    console.log('Connected to SQLite database');
+    // Use DatabaseManager to get the effective database path with fallback support
+    const effectiveDatabasePath = databaseManager.getEffectiveDatabasePath();
+    const dbStatus = databaseManager.getStatus();
+    
+    console.log('Database configuration:');
+    console.log(`  Effective path: ${effectiveDatabasePath}`);
+    console.log(`  Is persistent: ${dbStatus.isPersistent}`);
+    if (dbStatus.warning) {
+      console.warn(`  ⚠️  ${dbStatus.warning}`);
+    }
+    
+    db = new Database(effectiveDatabasePath);
+    console.log('✅ Connected to SQLite database');
+    
     createTables();
     initializeWebhookConfig();
     return db;
   } catch (err) {
-    console.error('Error opening database:', err);
+    console.error('❌ Error opening database:', err);
+    
+    // Try to provide helpful error information
+    const dbStatus = databaseManager.getStatus();
+    if (dbStatus.error) {
+      console.error('Database manager error:', dbStatus.error);
+    }
+    
+    console.error('Database troubleshooting:');
+    console.error('  1. Check if /data directory is mounted and writable');
+    console.error('  2. Verify Home Assistant addon volume configuration');
+    console.error('  3. Check container permissions for database directory');
+    
     process.exit(1);
   }
 }

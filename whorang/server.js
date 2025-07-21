@@ -175,18 +175,43 @@ app.get('/health', (req, res) => {
 app.get('/api/debug/directories', (req, res) => {
   try {
     const directoryManager = require('./utils/directoryManager');
+    const databaseManager = require('./utils/databaseManager');
     const uploadMiddleware = require('./middleware/upload');
     
     const status = {
       timestamp: new Date().toISOString(),
       directoryManager: directoryManager.getStatus(),
+      databaseManager: databaseManager.getStatus(),
       uploadMiddleware: uploadMiddleware.getStatus ? uploadMiddleware.getStatus() : 'Status not available',
       environment: {
         NODE_ENV: process.env.NODE_ENV,
         UPLOADS_PATH: process.env.UPLOADS_PATH,
+        DATABASE_PATH: process.env.DATABASE_PATH,
         DATA_UPLOADS_WRITABLE: process.env.DATA_UPLOADS_WRITABLE
-      }
+      },
+      persistenceWarnings: []
     };
+    
+    // Add persistence warnings
+    const dbStatus = databaseManager.getStatus();
+    if (!dbStatus.isPersistent) {
+      status.persistenceWarnings.push({
+        type: 'database',
+        message: 'Database is using temporary storage - data will be lost on restart!',
+        effectivePath: dbStatus.effectivePath,
+        recommendation: 'Ensure /data directory is properly mounted and writable'
+      });
+    }
+    
+    const dirStatus = directoryManager.getStatus();
+    if (!dirStatus.isDataWritable) {
+      status.persistenceWarnings.push({
+        type: 'uploads',
+        message: 'Uploads are using temporary storage - files will be lost on restart!',
+        effectivePath: dirStatus.effectiveBasePath,
+        recommendation: 'Ensure /data directory is properly mounted and writable'
+      });
+    }
     
     res.status(200).json(status);
   } catch (error) {

@@ -1,0 +1,409 @@
+# Services for WhoRang AI Doorbell integration
+
+trigger_analysis:
+  name: Trigger AI Analysis
+  description: Trigger AI analysis for a visitor (latest if no visitor_id specified)
+  fields:
+    visitor_id:
+      name: Visitor ID
+      description: ID of the visitor to analyze (optional, uses latest if not specified)
+      example: "abc123-def456-ghi789"
+      selector:
+        text:
+
+add_known_visitor:
+  name: Add Known Visitor
+  description: Add a new known person for face recognition
+  fields:
+    name:
+      name: Name
+      description: Name of the person
+      required: true
+      example: "John Doe"
+      selector:
+        text:
+    notes:
+      name: Notes
+      description: Optional notes about the person
+      example: "Neighbor from next door"
+      selector:
+        text:
+          multiline: true
+
+remove_known_visitor:
+  name: Remove Known Visitor
+  description: Remove a known person from face recognition
+  fields:
+    person_id:
+      name: Person ID
+      description: ID of the person to remove
+      required: true
+      example: 1
+      selector:
+        number:
+          min: 1
+          mode: box
+
+set_ai_provider:
+  name: Set AI Provider
+  description: Change the active AI provider for face recognition
+  fields:
+    provider:
+      name: Provider
+      description: AI provider to use
+      required: true
+      example: "openai"
+      selector:
+        select:
+          options:
+            - "openai"
+            - "local"
+            - "claude"
+            - "gemini"
+            - "google-cloud-vision"
+
+export_data:
+  name: Export Visitor Data
+  description: Export visitor data in specified format
+  fields:
+    start_date:
+      name: Start Date
+      description: Start date for export (ISO format)
+      example: "2024-01-01T00:00:00Z"
+      selector:
+        datetime:
+    end_date:
+      name: End Date
+      description: End date for export (ISO format)
+      example: "2024-12-31T23:59:59Z"
+      selector:
+        datetime:
+    format:
+      name: Format
+      description: Export format
+      default: "json"
+      example: "json"
+      selector:
+        select:
+          options:
+            - "json"
+            - "csv"
+
+test_webhook:
+  name: Test Webhook
+  description: Test webhook functionality by sending a test event
+
+set_ai_model:
+  name: Set AI Model
+  description: Set the AI model for the current provider
+  fields:
+    model:
+      name: Model
+      description: Model name to set
+      required: true
+      example: "gpt-4o"
+      selector:
+        text:
+
+get_available_models:
+  name: Get Available Models
+  description: Get list of available models for current or specified provider
+  fields:
+    provider:
+      name: Provider
+      description: AI provider to get models for (optional)
+      required: false
+      example: "openai"
+      selector:
+        select:
+          options:
+            - "local"
+            - "openai"
+            - "claude"
+            - "gemini"
+            - "google-cloud-vision"
+
+refresh_ollama_models:
+  name: Refresh Ollama Models
+  description: Refresh the list of available Ollama models from the local instance
+
+test_ollama_connection:
+  name: Test Ollama Connection
+  description: Test connection to the Ollama service and get status information
+
+process_doorbell_event:
+  name: Process Doorbell Event
+  description: Process a complete doorbell event with image and context data (replaces rest_command.doorbell_webhook)
+  fields:
+    image_url:
+      name: Image URL
+      description: URL of the doorbell snapshot image
+      required: true
+      example: "http://192.168.86.162:8123/local/doorbell_snapshot_1749552024.jpg"
+      selector:
+        text:
+    ai_message:
+      name: AI Message
+      description: AI analysis message
+      required: false
+      example: "A person is standing at the front door"
+      selector:
+        text:
+          multiline: true
+    ai_title:
+      name: AI Title
+      description: AI analysis title
+      required: false
+      example: "Visitor Detected"
+      selector:
+        text:
+    location:
+      name: Location
+      description: Location where the event occurred
+      required: false
+      default: "front_door"
+      example: "front_door"
+      selector:
+        text:
+    weather_temp:
+      name: Weather Temperature
+      description: Current temperature (supports templates)
+      required: false
+      example: "{{ state_attr('weather.forecast_home', 'temperature') | float | default(20) }}"
+      selector:
+        text:
+    weather_humidity:
+      name: Weather Humidity
+      description: Current humidity percentage (supports templates)
+      required: false
+      example: "{{ state_attr('weather.forecast_home', 'humidity') | int | default(50) }}"
+      selector:
+        text:
+    weather_condition:
+      name: Weather Condition
+      description: Current weather condition (supports templates)
+      required: false
+      example: "{{ states('weather.forecast_home') | default('unknown') }}"
+      selector:
+        text:
+    wind_speed:
+      name: Wind Speed
+      description: Current wind speed (supports templates)
+      required: false
+      example: "{{ state_attr('weather.forecast_home', 'wind_speed') | float | default(0) }}"
+      selector:
+        text:
+    pressure:
+      name: Pressure
+      description: Current atmospheric pressure (supports templates)
+      required: false
+      example: "{{ state_attr('weather.forecast_home', 'pressure') | float | default(1013) }}"
+      selector:
+        text:
+
+# Face Management Services
+
+label_face:
+  name: Label Face
+  description: Assign a name to an unknown face for recognition
+  fields:
+    face_id:
+      name: Face ID
+      description: ID of the face to label
+      required: true
+      example: 8
+      selector:
+        number:
+          min: 1
+          max: 10000
+          mode: box
+    person_name:
+      name: Person Name
+      description: Name to assign to this face
+      required: true
+      example: "John Doe"
+      selector:
+        text:
+
+create_person_from_face:
+  name: Create Person from Face
+  description: Create a new person and assign the face to them
+  fields:
+    face_id:
+      name: Face ID
+      description: ID of the face to use for the new person
+      required: true
+      example: 8
+      selector:
+        number:
+          min: 1
+          max: 10000
+          mode: box
+    person_name:
+      name: Person Name
+      description: Name of the new person
+      required: true
+      example: "Jane Smith"
+      selector:
+        text:
+    description:
+      name: Description
+      description: Optional description of the person
+      required: false
+      example: "Family member"
+      selector:
+        text:
+          multiline: true
+
+get_unknown_faces:
+  name: Get Unknown Faces
+  description: Retrieve and update the list of unknown faces requiring labeling
+  fields:
+    limit:
+      name: Limit
+      description: Maximum number of faces to retrieve
+      required: false
+      default: 50
+      example: 50
+      selector:
+        number:
+          min: 1
+          max: 200
+          mode: box
+    quality_threshold:
+      name: Quality Threshold
+      description: Minimum face quality score (0.0 to 1.0)
+      required: false
+      default: 0.0
+      example: 0.6
+      selector:
+        number:
+          min: 0.0
+          max: 1.0
+          step: 0.1
+          mode: slider
+
+delete_face:
+  name: Delete Face
+  description: Delete a detected face from the system
+  fields:
+    face_id:
+      name: Face ID
+      description: ID of the face to delete
+      required: true
+      example: 8
+      selector:
+        number:
+          min: 1
+          max: 10000
+          mode: box
+
+get_face_similarities:
+  name: Get Face Similarities
+  description: Find similar faces to help with labeling decisions
+  fields:
+    face_id:
+      name: Face ID
+      description: ID of the face to find similarities for
+      required: true
+      example: 8
+      selector:
+        number:
+          min: 1
+          max: 10000
+          mode: box
+    threshold:
+      name: Similarity Threshold
+      description: Minimum similarity score (0.0 to 1.0)
+      required: false
+      default: 0.6
+      example: 0.6
+      selector:
+        number:
+          min: 0.0
+          max: 1.0
+          step: 0.1
+          mode: slider
+    limit:
+      name: Limit
+      description: Maximum number of similar faces to return
+      required: false
+      default: 10
+      example: 10
+      selector:
+        number:
+          min: 1
+          max: 50
+          mode: box
+
+# Person Management Services
+
+update_person:
+  name: Update Person
+  description: Update person information (name and description)
+  fields:
+    person_id:
+      name: Person ID
+      description: ID of the person to update
+      required: true
+      example: 1
+      selector:
+        number:
+          min: 1
+          max: 10000
+          mode: box
+    name:
+      name: Name
+      description: New name for the person
+      required: false
+      example: "John Doe"
+      selector:
+        text:
+    description:
+      name: Description
+      description: New description for the person
+      required: false
+      example: "Family member"
+      selector:
+        text:
+          multiline: true
+
+get_person_details:
+  name: Get Person Details
+  description: Get detailed information about a person including associated faces
+  fields:
+    person_id:
+      name: Person ID
+      description: ID of the person to get details for
+      required: true
+      example: 1
+      selector:
+        number:
+          min: 1
+          max: 10000
+          mode: box
+
+merge_persons:
+  name: Merge Persons
+  description: Merge two person entries into one
+  fields:
+    source_person_id:
+      name: Source Person ID
+      description: ID of the person to merge from (will be deleted)
+      required: true
+      example: 2
+      selector:
+        number:
+          min: 1
+          max: 10000
+          mode: box
+    target_person_id:
+      name: Target Person ID
+      description: ID of the person to merge into (will be kept)
+      required: true
+      example: 1
+      selector:
+        number:
+          min: 1
+          max: 10000
+          mode: box

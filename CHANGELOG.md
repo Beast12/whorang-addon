@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2025-01-20
+
+### Fixed
+- **Critical**: Fixed database permission error (`SQLITE_CANTOPEN`) preventing addon startup
+- **Critical**: Fixed data persistence issue - added missing `/data` volume mapping to Home Assistant addon configuration
+- Resolved complete data loss on addon restart/Home Assistant reboot
+
+### Added
+- New DatabaseManager utility with fallback system for database access
+- Comprehensive test script `test_database_permissions.js` for validation
+- Enhanced debug endpoint with database status monitoring and persistence warnings
+- Complete documentation `DATABASE_PERSISTENCE_FIXES_README.md` with troubleshooting guide
+
+### Changed
+- Enhanced database configuration with DatabaseManager integration
+- Improved error handling and troubleshooting for database initialization
+- Added comprehensive logging for database and persistence status
+- Updated Home Assistant addon volume mapping to include `data:rw` for persistence
+
+### Technical Improvements
+- Database fallback system: `/data/whorang.db` → `/app/whorang.db` with warnings
+- Permission testing before database creation
+- Real-time persistence status monitoring via debug endpoint
+- Comprehensive status reporting for troubleshooting
+- Enterprise-grade data persistence and reliability
+
 ## [1.1.1] - 2025-01-19
 
 ### Fixed

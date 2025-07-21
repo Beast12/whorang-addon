@@ -15,6 +15,24 @@ echo "Created /data upload directories"
 mkdir -p /app/uploads/faces /app/uploads/temp /app/uploads/thumbnails /app/data
 echo "Created /app upload directories"
 
+# Set up Home Assistant integration files
+echo "📦 Setting up Home Assistant integration..."
+if [ -d "/config" ]; then
+    # Running as Home Assistant addon - copy integration files to config
+    mkdir -p /config/custom_components
+    if [ -d "/config/custom_components/whorang" ]; then
+        echo "Integration files already exist in /config/custom_components/whorang"
+    else
+        echo "Copying integration files to /config/custom_components/whorang"
+        cp -r /config/custom_components/whorang /config/custom_components/ 2>/dev/null || {
+            echo "⚠️  Warning: Could not copy integration files - they may already be present"
+        }
+    fi
+    echo "✅ Integration files ready for Home Assistant discovery"
+else
+    echo "ℹ️  Not running as Home Assistant addon - integration files should be manually installed"
+fi
+
 # Create nginx directories
 mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp
 mkdir -p /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp

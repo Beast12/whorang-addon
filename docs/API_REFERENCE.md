@@ -491,6 +491,74 @@ Content-Type: application/json
 GET /api/database/status
 ```
 
+### GET /api/debug/directories
+**Database and persistence status monitoring (v1.1.2+)**
+
+```http
+GET /api/debug/directories
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "timestamp": "2025-01-20T10:30:00.000Z",
+  "directoryManager": {
+    "primaryBasePath": "/data/uploads",
+    "fallbackBasePath": "/app/uploads",
+    "effectiveBasePath": "/data/uploads",
+    "isDataWritable": true,
+    "usedFallback": false
+  },
+  "databaseManager": {
+    "primaryDbPath": "/data/whorang.db",
+    "fallbackDbPath": "/app/whorang.db",
+    "effectivePath": "/data/whorang.db",
+    "isPersistent": true,
+    "isDataWritable": true,
+    "warning": null
+  },
+  "uploadMiddleware": {
+    "status": "initialized",
+    "directory": "/data/uploads/faces",
+    "usedFallback": false
+  },
+  "environment": {
+    "NODE_ENV": "production",
+    "UPLOADS_PATH": "/data/uploads",
+    "DATABASE_PATH": "/data/whorang.db",
+    "DATA_UPLOADS_WRITABLE": "true"
+  },
+  "persistenceWarnings": []
+}
+```
+
+**Persistence Warning Example:**
+```json
+{
+  "persistenceWarnings": [
+    {
+      "type": "database",
+      "message": "Database is using temporary storage - data will be lost on restart!",
+      "effectivePath": "/app/whorang.db",
+      "recommendation": "Ensure /data directory is properly mounted and writable"
+    },
+    {
+      "type": "uploads",
+      "message": "Uploads are using temporary storage - files will be lost on restart!",
+      "effectivePath": "/app/uploads",
+      "recommendation": "Ensure /data directory is properly mounted and writable"
+    }
+  ]
+}
+```
+
+**Use Cases:**
+- **Troubleshooting**: Diagnose data persistence issues
+- **Monitoring**: Check if data will survive restarts
+- **Docker Validation**: Verify volume mappings are working
+- **Health Checks**: Automated monitoring of persistence status
+
 ## 🤖 AI Provider Management Endpoints
 
 ### GET /api/ai/providers

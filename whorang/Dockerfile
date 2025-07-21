@@ -2,7 +2,7 @@
 FROM node:22-alpine AS builder
 
 # Build arguments
-ARG BUILD_VERSION=1.1.1
+ARG BUILD_VERSION=1.1.2
 
 WORKDIR /app
 
@@ -32,7 +32,7 @@ RUN npm install
 FROM node:22-alpine
 
 # Build arguments
-ARG BUILD_VERSION=1.1.1
+ARG BUILD_VERSION=1.1.2
 
 WORKDIR /app
 
@@ -60,6 +60,9 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # Copy source code
 COPY . .
+
+# Copy Home Assistant integration files to the proper location
+COPY custom_components /config/custom_components
 
 # Copy nginx configuration files
 COPY nginx.conf /etc/nginx/nginx.conf
