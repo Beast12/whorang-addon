@@ -1,6 +1,6 @@
-name: "WhoRang AI Doorbell Backend"
-description: "AI-powered doorbell backend with face recognition and multi-provider AI analysis"
-version: "1.2.0"
+name: "WhoRang AI Doorbell"
+description: "Complete AI-powered doorbell solution with face recognition, multi-provider AI analysis, and Home Assistant integration"
+version: "2.0.0"
 slug: "whorang"
 init: false
 arch:
@@ -81,6 +81,7 @@ map:
   - media:rw
   - backup:rw
   - data:rw
+  - config:rw
 
 backup: hot
 

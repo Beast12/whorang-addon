@@ -61,6 +61,9 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy source code
 COPY . .
 
+# Copy Home Assistant integration files to the proper location
+COPY custom_components /config/custom_components
+
 # Copy nginx configuration files
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY backend.conf /etc/nginx/conf.d/default.conf
