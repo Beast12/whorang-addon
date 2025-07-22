@@ -5,12 +5,12 @@
   "codeowners": ["@Beast12"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/Beast12/whorang-integration/blob/main/README.md",
+  "documentation": "https://github.com/Beast12/whorang-addon/blob/main/README.md",
   "integration_type": "hub",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/Beast12/whorang-integration/issues",
+  "issue_tracker": "https://github.com/Beast12/whorang-addon/issues",
   "loggers": ["aiohttp", "websockets"],
   "requirements": ["aiohttp>=3.8.0", "websockets>=11.0"],
   "single_config_entry": true,
-  "version": "1.1.0-dev"
+  "version": "2.0.0"
 }

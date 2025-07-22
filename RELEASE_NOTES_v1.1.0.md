@@ -414,7 +414,7 @@ provider_selection:
 ## 🔗 **Resources & Links**
 
 ### 📚 **Documentation**
-- **🏠 [Home Assistant Integration](https://github.com/Beast12/whorang-integration)**: Complete HA integration
+- **🏠 Home Assistant Integration**: Included automatically with addon installation
 - **📖 [API Documentation](docs/API_REFERENCE.md)**: Comprehensive API reference
 - **🎯 [Face Detection Guide](docs/Face_detection.md)**: Face processing details
 - **⚙️ [Configuration Guide](docs/configuration.md)**: Complete configuration options

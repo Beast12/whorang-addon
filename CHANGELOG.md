@@ -161,8 +161,7 @@ This is the first stable release of the WhoRang AI Doorbell Add-on, providing a 
 - Manual: Build from source for custom deployments
 
 **Next Steps:**
-- Install the companion [WhoRang Integration](https://github.com/Beast12/whorang-integration)
-- Configure your preferred AI provider
+- Configure your preferred AI provider (integration is included automatically)
 - Set up automations for visitor notifications
 - Customize face recognition settings
 

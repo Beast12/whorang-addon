@@ -314,6 +314,22 @@ logger:
 - **Discussions**: [Community support and questions](https://github.com/Beast12/whorang-addon/discussions)
 - **Documentation**: [Complete setup guides](docs/)
 
+## 📚 Complete Documentation
+
+### **Getting Started**
+- **[Installation Guide](docs/INSTALLATION.md)** - Complete installation for all Home Assistant types
+- **[Configuration Guide](docs/CONFIGURATION.md)** - AI providers, settings, and optimization
+- **[Dashboard Examples](docs/DASHBOARD_EXAMPLES.md)** - Beautiful dashboard configurations
+
+### **User Guides**
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[API Reference](docs/API_REFERENCE.md)** - Complete REST API documentation
+- **[Face Management](docs/Face_detection.md)** - Face detection and recognition system
+
+### **Technical Documentation**
+- **[Gemini Duplicate Detection](docs/gemini_dups.md)** - Gemini AI provider optimization
+- **[Image URL Configuration](docs/HOME_ASSISTANT_IMAGE_URL_CONFIGURATION.md)** - Image loading setup
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.

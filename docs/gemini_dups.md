@@ -1,6 +1,6 @@
 # Gemini AI Duplicate Face Detection Analysis
 
-The who-rang doorbell AI system is experiencing duplicate face cropping results specifically with Google Gemini Vision API. Based on comprehensive research of the repository and API integration patterns, **the root cause lies in Gemini's unique response format and parsing inconsistencies** that differ significantly from other AI providers in the same codebase.
+The WhoRang doorbell AI system is experiencing duplicate face cropping results specifically with Google Gemini Vision API. Based on comprehensive analysis of the system architecture and API integration patterns, **the root cause lies in Gemini's unique response format and parsing inconsistencies** that differ significantly from other AI providers in the unified codebase.
 
 ## Key technical findings
 

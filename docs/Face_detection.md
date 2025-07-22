@@ -1,10 +1,10 @@
-# WhoRang Face Cropping System Analysis
+# WhoRang Face Detection and Processing System
 
-Based on comprehensive research of the WhoRang Home Assistant addon ecosystem, this analysis reveals critical technical issues affecting face cropping functionality and provides specific implementation solutions for resolving these problems.
+This comprehensive technical analysis covers the WhoRang AI doorbell system's face detection and processing capabilities, providing detailed insights into the architecture, implementation, and optimization strategies for reliable face recognition.
 
 ## System Architecture Overview
 
-The **WhoRang system** is an AI-powered doorbell dashboard that transforms traditional doorbells into intelligent visitor identification systems. While the specific `whorang-addon` and `whorang-integration` repositories at the provided URLs were not accessible, analysis of the main WhoRang repository reveals a sophisticated multi-provider AI system with comprehensive face recognition capabilities.
+The **WhoRang system** is a complete AI-powered doorbell solution that transforms traditional doorbells into intelligent visitor identification systems. This unified solution combines both the AI backend and Home Assistant integration in a single repository, providing a sophisticated multi-provider AI system with comprehensive face recognition capabilities.
 
 The system utilizes a **React 18 + TypeScript frontend** with a **Node.js + Express backend**, SQLite database, and WebSocket communication for real-time updates. **Docker-based deployment** with nginx provides containerized infrastructure, while supporting five AI providers: OpenAI Vision, Anthropic Claude, Google Gemini, Google Cloud Vision, and local Ollama processing.
 

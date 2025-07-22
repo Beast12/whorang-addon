@@ -250,7 +250,7 @@ Modular architecture supports easy updates and new features
 
 ## 🔗 Links & Resources
 
-- **🏠 Home Assistant Integration**: [whorang-integration](https://github.com/Beast12/whorang-integration)
+- **🏠 Home Assistant Integration**: Included automatically with addon installation
 - **📖 Documentation**: [Full Documentation](https://github.com/Beast12/whorang-addon/tree/main/docs)
 - **🐛 Issues**: [Report Issues](https://github.com/Beast12/whorang-addon/issues)
 - **💬 Discussions**: [Community Discussions](https://github.com/Beast12/whorang-addon/discussions)
