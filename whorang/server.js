@@ -192,8 +192,11 @@ app.get('/settings.html', (req, res) => {
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve uploaded files
-app.use('/uploads', express.static('uploads'));
+// Serve uploaded files using user-configured path with fallback
+const directoryManager = require('./utils/directoryManager');
+const uploadsPath = directoryManager.getEffectiveBasePath();
+console.log(`📁 Serving uploads from: ${uploadsPath}`);
+app.use('/uploads', express.static(uploadsPath));
 
 // Fallback route for SPA - serve index.html for any unmatched routes
 app.get('*', (req, res, next) => {
