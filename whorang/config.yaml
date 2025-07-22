@@ -38,6 +38,9 @@ devicetree: false
 docker_api: false
 stdin: false
 legacy: false
+timeout: 30
+tmpfs: false
+watchdog: "http://[HOST]:[PORT:3001]/health"
 
 options:
   ssl: false

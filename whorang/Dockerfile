@@ -1,8 +1,10 @@
 # Multi-stage build for backend with integrated nginx
+ARG BUILD_FROM
 FROM node:22-alpine AS builder
 
 # Build arguments
-ARG BUILD_VERSION=1.1.2
+ARG BUILD_VERSION
+ARG BUILD_ARCH
 
 WORKDIR /app
 
@@ -28,16 +30,19 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-# Production stage with nginx
-FROM node:22-alpine
+# Production stage with Home Assistant base
+FROM $BUILD_FROM
 
 # Build arguments
-ARG BUILD_VERSION=1.1.2
+ARG BUILD_VERSION
+ARG BUILD_ARCH
 
 WORKDIR /app
 
-# Install nginx, sqlite, curl, and other runtime dependencies including canvas runtime deps
+# Install Node.js, nginx, sqlite, curl, and other runtime dependencies including canvas runtime deps
 RUN apk add --no-cache \
+    nodejs \
+    npm \
     nginx \
     sqlite \
     curl \
@@ -69,9 +74,10 @@ COPY backend.conf /etc/nginx/conf.d/default.conf
 COPY icon.png ./icon.png
 COPY logo.png ./logo.png
 
-# Copy and set up entrypoint script
-COPY docker-entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Copy and set up scripts
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY run.sh /run.sh
+RUN chmod +x /docker-entrypoint.sh /run.sh
 
 # Create comprehensive nginx directory structure with proper permissions
 RUN mkdir -p /var/lib/nginx/logs \
@@ -123,5 +129,5 @@ LABEL \
 # Expose port 80 (nginx will serve on port 80)
 EXPOSE 80
 
-# Use entrypoint to ensure everything starts properly
-ENTRYPOINT ["/entrypoint.sh"]
+# Use run.sh as the main entry point for Home Assistant add-on
+CMD ["/run.sh"]

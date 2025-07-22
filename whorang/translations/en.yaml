@@ -1,0 +1,47 @@
+# English translations for WhoRang AI Doorbell Add-on
+configuration:
+  ssl:
+    name: Enable SSL
+    description: Enable SSL/TLS encryption for secure connections
+  certfile:
+    name: SSL Certificate File
+    description: Path to SSL certificate file (e.g., fullchain.pem)
+  keyfile:
+    name: SSL Private Key File
+    description: Path to SSL private key file (e.g., privkey.pem)
+  ai_provider:
+    name: AI Provider
+    description: Choose the AI provider for face analysis and recognition
+  log_level:
+    name: Log Level
+    description: Set the logging verbosity level for debugging
+  database_path:
+    name: Database Path
+    description: Path where the SQLite database will be stored
+  uploads_path:
+    name: Uploads Path
+    description: Path where face images and uploads will be stored
+  max_upload_size:
+    name: Maximum Upload Size
+    description: Maximum file size allowed for image uploads
+  face_recognition_threshold:
+    name: Face Recognition Threshold
+    description: Similarity threshold for face recognition (0.1 = very loose, 1.0 = exact match)
+  ai_analysis_timeout:
+    name: AI Analysis Timeout
+    description: Maximum time to wait for AI analysis to complete (in seconds)
+  websocket_enabled:
+    name: Enable WebSocket
+    description: Enable real-time updates via WebSocket connections
+  cors_enabled:
+    name: Enable CORS
+    description: Enable Cross-Origin Resource Sharing for web interface
+  cors_origins:
+    name: CORS Origins
+    description: List of allowed origins for CORS requests
+  public_url:
+    name: Public URL
+    description: Public URL for accessing images (leave empty for auto-detection)
+
+network:
+  3001/tcp: WhoRang API and WebSocket port for web interface and Home Assistant integration

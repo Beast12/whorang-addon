@@ -1,0 +1,32 @@
+# https://developers.home-assistant.io/docs/add-ons/configuration#add-on-extended-build
+build_from:
+  aarch64: ghcr.io/home-assistant/aarch64-base:3.20
+  amd64: ghcr.io/home-assistant/amd64-base:3.20
+  armhf: ghcr.io/home-assistant/armhf-base:3.20
+  armv7: ghcr.io/home-assistant/armv7-base:3.20
+  i386: ghcr.io/home-assistant/i386-base:3.20
+args:
+  BUILD_ARCH: "{arch}"
+  BUILD_VERSION: "{version}"
+  BUILD_FROM: "{build_from}"
+labels:
+  io.hass.name: "WhoRang AI Doorbell"
+  io.hass.description: "Complete AI-powered doorbell solution with face recognition, multi-provider AI analysis, and Home Assistant integration"
+  io.hass.arch: "{arch}"
+  io.hass.type: "addon"
+  io.hass.version: "{version}"
+  maintainer: "Beast12 <notary@beast12.dev>"
+  org.opencontainers.image.title: "WhoRang AI Doorbell"
+  org.opencontainers.image.description: "Complete AI-powered doorbell solution with face recognition, multi-provider AI analysis, and Home Assistant integration"
+  org.opencontainers.image.vendor: "Beast12"
+  org.opencontainers.image.authors: "Beast12 <notary@beast12.dev>"
+  org.opencontainers.image.licenses: "MIT"
+  org.opencontainers.image.url: "https://github.com/Beast12/whorang-addon"
+  org.opencontainers.image.source: "https://github.com/Beast12/whorang-addon"
+  org.opencontainers.image.documentation: "https://github.com/Beast12/whorang-addon/blob/main/whorang/README.md"
+  org.opencontainers.image.created: "{build_date}"
+  org.opencontainers.image.revision: "{build_revision}"
+  org.opencontainers.image.version: "{version}"
+codenotary:
+  signer: "notary@beast12.dev"
+  base_image: "notary@home-assistant.io"
