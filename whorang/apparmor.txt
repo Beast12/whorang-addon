@@ -1,0 +1,164 @@
+#include <tunables/global>
+
+profile whorang flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Capabilities
+  file,
+  signal (send) set=(kill,term,int,hup,cont),
+
+  # S6-Overlay
+  /init ix,
+  /bin/** ix,
+  /usr/bin/** ix,
+  /run/{s6,s6-rc*,service}/** ix,
+  /package/** ix,
+  /command/** ix,
+  /etc/services.d/** rwix,
+  /etc/cont-init.d/** rwix,
+  /etc/cont-finish.d/** rwix,
+  /run/{,**} rwk,
+  /dev/tty rw,
+
+  # Bashio
+  /usr/lib/bashio/** ix,
+  /tmp/** rwk,
+
+  # Access to options.json and other files within your addon
+  /data/** rw,
+
+  # Start new profile for Node.js application
+  /usr/bin/node cx -> node,
+  /usr/bin/nginx cx -> nginx,
+
+  profile node flags=(attach_disconnected,mediate_deleted) {
+    #include <abstractions/base>
+
+    # Receive signals from S6-Overlay
+    signal (receive) peer=*_whorang,
+
+    # Node.js binary and libraries
+    /usr/bin/node r,
+    /usr/lib/node_modules/** r,
+    /app/** r,
+    /app/node_modules/** r,
+
+    # Application files
+    /app/server.js r,
+    /app/package.json r,
+    /app/config/** r,
+    /app/controllers/** r,
+    /app/middleware/** r,
+    /app/routes/** r,
+    /app/services/** r,
+    /app/utils/** r,
+    /app/websocket/** r,
+
+    # Data directory access
+    /data/** rw,
+    /data/whorang.db rwk,
+    /data/uploads/** rwk,
+
+    # Temporary files
+    /tmp/** rwk,
+
+    # System files needed by Node.js
+    /etc/passwd r,
+    /etc/group r,
+    /etc/hosts r,
+    /etc/resolv.conf r,
+    /etc/nsswitch.conf r,
+    /etc/ssl/certs/** r,
+
+    # Network access for AI providers
+    network inet stream,
+    network inet dgram,
+
+    # Process control
+    /bin/bash rix,
+    /bin/echo ix,
+    /dev/tty rw,
+    /dev/null rw,
+    /dev/zero r,
+    /dev/urandom r,
+
+    # Shared libraries
+    /lib/** mr,
+    /usr/lib/** mr,
+    /usr/share/zoneinfo/** r,
+
+    # Proc filesystem (limited)
+    /proc/sys/kernel/random/uuid r,
+    /proc/meminfo r,
+    /proc/cpuinfo r,
+    /proc/loadavg r,
+    /proc/uptime r,
+    /proc/version r,
+    /proc/self/stat r,
+    /proc/self/status r,
+    /proc/self/cmdline r,
+    /proc/self/environ r,
+    /proc/self/fd/ r,
+    /proc/self/fd/* rw,
+
+    # Home Assistant API access
+    /run/supervisor.sock rw,
+  }
+
+  profile nginx flags=(attach_disconnected,mediate_deleted) {
+    #include <abstractions/base>
+    #include <abstractions/web-data>
+
+    # Receive signals from S6-Overlay
+    signal (receive) peer=*_whorang,
+
+    # Nginx binary and configuration
+    /usr/sbin/nginx mr,
+    /etc/nginx/** r,
+    /var/log/nginx/** w,
+    /var/lib/nginx/** rw,
+    /run/nginx.pid rw,
+    /run/nginx/** rw,
+
+    # SSL certificates
+    /ssl/** r,
+    /data/ssl/** r,
+
+    # Network access
+    network inet stream,
+    network inet dgram,
+
+    # System files
+    /etc/passwd r,
+    /etc/group r,
+    /etc/hosts r,
+    /etc/resolv.conf r,
+    /etc/nsswitch.conf r,
+
+    # Process control
+    /dev/null rw,
+    /dev/zero r,
+    /dev/urandom r,
+
+    # Shared libraries
+    /lib/** mr,
+    /usr/lib/** mr,
+
+    # Temporary files
+    /tmp/** rwk,
+
+    # Proc filesystem (limited)
+    /proc/sys/kernel/random/uuid r,
+    /proc/meminfo r,
+    /proc/cpuinfo r,
+    /proc/loadavg r,
+    /proc/uptime r,
+    /proc/version r,
+    /proc/self/stat r,
+    /proc/self/status r,
+    /proc/self/cmdline r,
+    /proc/self/environ r,
+    /proc/self/fd/ r,
+    /proc/self/fd/* rw,
+  }
+}

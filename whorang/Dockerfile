@@ -65,6 +65,10 @@ COPY . .
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY backend.conf /etc/nginx/conf.d/default.conf
 
+# Ensure icon and logo are in the correct location for Home Assistant
+COPY icon.png ./icon.png
+COPY logo.png ./logo.png
+
 # Copy and set up entrypoint script
 COPY docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
