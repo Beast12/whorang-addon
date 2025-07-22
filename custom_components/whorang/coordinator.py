@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api_client import WhoRangAPIClient, WhoRangConnectionError
+from .api_client_enhanced import WhoRangAPIClientEnhanced
 from .const import (
     DOMAIN,
     DEFAULT_UPDATE_INTERVAL,
@@ -40,15 +41,42 @@ class WhoRangDataUpdateCoordinator(DataUpdateCoordinator):
         api_client: WhoRangAPIClient,
         update_interval: int = DEFAULT_UPDATE_INTERVAL,
         enable_websocket: bool = True,
+        backend_url: Optional[str] = None,
+        discovery_timeout: int = 10,
+        retry_attempts: int = 3,
     ) -> None:
-        """Initialize the coordinator."""
-        self.api_client = api_client
+        """Initialize the coordinator with enhanced API client support."""
+        # Check if we should use the enhanced API client
+        if isinstance(api_client, WhoRangAPIClientEnhanced):
+            self.api_client = api_client
+        else:
+            # Upgrade to enhanced API client for better deployment support
+            _LOGGER.info("Upgrading to enhanced API client for deployment detection")
+            self.api_client = WhoRangAPIClientEnhanced(
+                host=getattr(api_client, 'host', None),
+                port=getattr(api_client, 'port', None),
+                use_ssl=getattr(api_client, 'use_ssl', False),
+                api_key=getattr(api_client, 'api_key', None),
+                verify_ssl=getattr(api_client, 'verify_ssl', True),
+                session=getattr(api_client, '_session', None),
+                timeout=getattr(api_client, 'timeout', 30),
+                ollama_config=getattr(api_client, 'ollama_config', None),
+                backend_url=backend_url,
+                discovery_timeout=discovery_timeout,
+                retry_attempts=retry_attempts,
+            )
+        
         self.enable_websocket = enable_websocket
         self._websocket = None
         self._websocket_task = None
         self._reconnect_task = None
         self._last_visitor_id = None
         self._known_persons = {}
+        
+        # Phase 1: Intelligent automation components
+        self._automation_engine = None
+        self._doorbell_detector = None
+        self._camera_manager = None
         
         # Initialize with default data structure to prevent None errors
         self.data = {
@@ -216,6 +244,29 @@ class WhoRangDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_setup(self) -> None:
         """Set up the coordinator."""
+        # Initialize automation engine for Phase 1 intelligent automation
+        try:
+            from .automation_engine import AutomationEngine
+            
+            # Get configuration from config entry
+            config_entry = None
+            for entry in self.hass.config_entries.async_entries("whorang"):
+                if entry.state.name == "loaded":
+                    config_entry = entry
+                    break
+            
+            if config_entry:
+                # Initialize automation engine with configuration
+                self._automation_engine = AutomationEngine(self.hass, self)
+                await self._automation_engine.async_setup(config_entry.options)
+                _LOGGER.info("Phase 1 intelligent automation engine initialized successfully")
+            else:
+                _LOGGER.warning("No config entry found for automation engine setup")
+                
+        except Exception as err:
+            _LOGGER.error("Failed to initialize automation engine: %s", err)
+            # Continue without automation engine - existing functionality still works
+        
         # Start WebSocket connection if enabled
         if self.enable_websocket:
             await self._start_websocket()

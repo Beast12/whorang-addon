@@ -37,6 +37,8 @@ async def async_setup_entry(
         WhoRangTriggerAnalysisButton(coordinator, config_entry),
         WhoRangTestWebhookButton(coordinator, config_entry),
         WhoRangRefreshDataButton(coordinator, config_entry),
+        WhoRangTestAutomationButton(coordinator, config_entry),
+        WhoRangTestCameraSnapshotButton(coordinator, config_entry),
     ]
 
     async_add_entities(entities)
@@ -181,3 +183,131 @@ class WhoRangRefreshDataButton(WhoRangButtonEntity):
         return {
             "status": "No data available",
         }
+
+
+class WhoRangTestAutomationButton(WhoRangButtonEntity):
+    """Button to test intelligent automation workflow."""
+
+    def __init__(
+        self,
+        coordinator: WhoRangDataUpdateCoordinator,
+        config_entry: ConfigEntry,
+    ) -> None:
+        """Initialize the button."""
+        super().__init__(coordinator, config_entry, "test_automation")
+        self._attr_name = "Test Automation"
+        self._attr_icon = "mdi:robot"
+
+    async def async_press(self) -> None:
+        """Handle the button press."""
+        _LOGGER.debug("Testing intelligent automation workflow")
+        
+        try:
+            # Get automation engine from coordinator
+            automation_engine = getattr(self.coordinator, '_automation_engine', None)
+            if not automation_engine:
+                _LOGGER.error("Automation engine not available")
+                return
+            
+            # Get detected entities info
+            detected_entities = automation_engine.get_detected_entities()
+            doorbells = detected_entities.get("doorbells", {})
+            
+            if not doorbells:
+                _LOGGER.warning("No doorbell entities detected for testing")
+                return
+            
+            # Test with the first detected doorbell
+            first_doorbell = list(doorbells.keys())[0]
+            result = await automation_engine.async_test_automation(first_doorbell)
+            
+            if result.get("success"):
+                _LOGGER.info("Automation test successful: %s", result.get("message"))
+            else:
+                _LOGGER.error("Automation test failed: %s", result.get("message"))
+                
+        except Exception as err:
+            _LOGGER.error("Error testing automation: %s", err)
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        """Return additional state attributes."""
+        automation_engine = getattr(self.coordinator, '_automation_engine', None)
+        if automation_engine:
+            stats = automation_engine.get_statistics()
+            detected = automation_engine.get_detected_entities()
+            
+            return {
+                "automation_enabled": detected.get("enabled", False),
+                "doorbells_detected": len(detected.get("doorbells", {})),
+                "cameras_detected": len(detected.get("cameras", {})),
+                "pairs_created": len(detected.get("pairs", [])),
+                "events_processed": stats.get("events_processed", 0),
+                "success_rate": f"{stats.get('success_rate', 0):.1f}%"
+            }
+        
+        return {"status": "Automation engine not available"}
+
+
+class WhoRangTestCameraSnapshotButton(WhoRangButtonEntity):
+    """Button to test camera snapshot functionality."""
+
+    def __init__(
+        self,
+        coordinator: WhoRangDataUpdateCoordinator,
+        config_entry: ConfigEntry,
+    ) -> None:
+        """Initialize the button."""
+        super().__init__(coordinator, config_entry, "test_camera_snapshot")
+        self._attr_name = "Test Camera Snapshot"
+        self._attr_icon = "mdi:camera"
+
+    async def async_press(self) -> None:
+        """Handle the button press."""
+        _LOGGER.debug("Testing camera snapshot functionality")
+        
+        try:
+            # Get automation engine from coordinator
+            automation_engine = getattr(self.coordinator, '_automation_engine', None)
+            if not automation_engine:
+                _LOGGER.error("Automation engine not available")
+                return
+            
+            # Get detected entities info
+            detected_entities = automation_engine.get_detected_entities()
+            cameras = detected_entities.get("cameras", {})
+            
+            if not cameras:
+                _LOGGER.warning("No camera entities detected for testing")
+                return
+            
+            # Test with the first detected camera
+            first_camera = list(cameras.keys())[0]
+            result = await automation_engine.async_test_camera_snapshot(first_camera)
+            
+            if result.get("success"):
+                _LOGGER.info("Camera snapshot test successful: %s", result.get("message"))
+                # Refresh coordinator to show the test snapshot
+                await self.coordinator.async_request_refresh()
+            else:
+                _LOGGER.error("Camera snapshot test failed: %s", result.get("message"))
+                
+        except Exception as err:
+            _LOGGER.error("Error testing camera snapshot: %s", err)
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        """Return additional state attributes."""
+        automation_engine = getattr(self.coordinator, '_automation_engine', None)
+        if automation_engine:
+            camera_manager = getattr(automation_engine, '_camera_manager', None)
+            if camera_manager:
+                stats = camera_manager.get_statistics()
+                return {
+                    "snapshots_taken": stats.get("snapshots_taken", 0),
+                    "failed_snapshots": stats.get("failed_snapshots", 0),
+                    "success_rate": f"{stats.get('success_rate', 0):.1f}%",
+                    "last_snapshot": stats.get("last_snapshot_time")
+                }
+        
+        return {"status": "Camera manager not available"}
