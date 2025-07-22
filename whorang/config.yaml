@@ -53,6 +53,7 @@ options:
   websocket_enabled: true
   cors_enabled: true
   cors_origins: ["*"]
+  public_url: ""
 
 schema:
   ssl: bool
@@ -68,6 +69,7 @@ schema:
   websocket_enabled: bool
   cors_enabled: bool
   cors_origins: [str]
+  public_url: str?
 
 environment:
   NODE_ENV: "production"

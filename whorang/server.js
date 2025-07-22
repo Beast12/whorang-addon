@@ -18,6 +18,7 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:8080';
 const CORS_MODE = process.env.CORS_MODE || 'auto';
 const WEBHOOK_PATH = process.env.WEBHOOK_PATH || '/api/webhook/doorbell';
 const TRUST_PROXY = process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production';
+const PUBLIC_URL = process.env.PUBLIC_URL || null;
 
 // Configure proxy trust for production deployments
 if (TRUST_PROXY) {
@@ -158,8 +159,40 @@ app.use('/api', apiRoutes);
 // Webhook Routes
 app.use('/api/webhook', webhookRoutes);
 
+// Handle HTML page routes BEFORE static middleware
+app.get('/faces.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'faces.html'));
+});
+
+app.get('/persons.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'persons.html'));
+});
+
+app.get('/settings.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'settings.html'));
+});
+
+// Serve static frontend files
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
+
+// Fallback route for SPA - serve index.html for any unmatched routes
+app.get('*', (req, res, next) => {
+  // Skip API routes and specific file extensions
+  if (req.path.startsWith('/api/') || 
+      req.path.startsWith('/uploads/') ||
+      req.path.endsWith('.js') || 
+      req.path.endsWith('.css') || 
+      req.path.endsWith('.png') || 
+      req.path.endsWith('.jpg') || 
+      req.path.endsWith('.ico') ||
+      req.path.endsWith('.svg')) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Health check endpoint for load balancers
 app.get('/health', (req, res) => {
@@ -243,7 +276,13 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`CORS Mode: ${effectiveCorsMode} (configured: ${CORS_MODE})`);
   console.log(`CORS Origins: ${corsOrigins.join(', ')}`);
   console.log(`Proxy Trust: ${TRUST_PROXY ? 'enabled' : 'disabled'}`);
+  console.log(`Public URL: ${PUBLIC_URL || 'auto-detected from requests'}`);
   console.log(`WebSocket server ready`);
+  
+  if (!PUBLIC_URL) {
+    console.log(`💡 Tip: Set PUBLIC_URL environment variable to configure image URLs`);
+    console.log(`   Example: PUBLIC_URL=http://your-domain.com:3001`);
+  }
 });
 
 // Graceful shutdown

@@ -81,6 +81,13 @@ if bashio::config.has_value 'cors_origins'; then
     export CORS_ORIGINS="${cors_origins}"
 fi
 
+# Public URL for image serving
+if bashio::config.has_value 'public_url'; then
+    public_url=$(bashio::config 'public_url')
+    export PUBLIC_URL="${public_url}"
+    bashio::log.info "Using custom public URL: ${public_url}"
+fi
+
 # Home Assistant integration
 if bashio::supervisor.ping; then
     bashio::log.info "Home Assistant Supervisor detected"

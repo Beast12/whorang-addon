@@ -143,7 +143,19 @@ router.get('/gallery', async (req, res) => {
     const knownPersons = knownStmt.all();
     
     // Add image URLs to unknown faces
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    // Use configurable base URL or fall back to request-based URL
+    const PUBLIC_URL = process.env.PUBLIC_URL || process.env.CORS_ORIGIN || null;
+    let baseUrl;
+    
+    if (PUBLIC_URL) {
+      // Use configured public URL
+      baseUrl = PUBLIC_URL.replace(/\/$/, ''); // Remove trailing slash
+    } else {
+      // Fall back to request-based URL construction
+      const host = req.get('host');
+      const port = host.includes(':') ? '' : ':3001';
+      baseUrl = `${req.protocol}://${host}${port}`;
+    }
     const processedUnknownFaces = unknownFaces.map(face => ({
       id: face.id,
       image_url: `${baseUrl}/api/faces/${face.id}/image`,
@@ -437,6 +449,122 @@ router.delete('/:faceId', async (req, res) => {
   } catch (error) {
     console.error('Error deleting face:', error);
     res.status(500).json({ error: 'Failed to delete face' });
+  }
+});
+
+// Clear all face data endpoint
+router.post('/clear-all', async (req, res) => {
+  try {
+    const db = getDatabase();
+    
+    // Get all face image paths before deletion
+    const facesStmt = db.prepare('SELECT face_crop_path, thumbnail_path FROM detected_faces');
+    const faces = facesStmt.all();
+    
+    // Get counts before deletion
+    const faceCountStmt = db.prepare('SELECT COUNT(*) as count FROM detected_faces');
+    const personCountStmt = db.prepare('SELECT COUNT(*) as count FROM persons');
+    const faceCount = faceCountStmt.get().count;
+    const personCount = personCountStmt.get().count;
+    
+    // Delete all detected faces
+    const deleteFacesStmt = db.prepare('DELETE FROM detected_faces');
+    const facesResult = deleteFacesStmt.run();
+    
+    // Delete all persons
+    const deletePersonsStmt = db.prepare('DELETE FROM persons');
+    const personsResult = deletePersonsStmt.run();
+    
+    // Try to delete all face image files
+    let deletedFiles = 0;
+    let failedFiles = 0;
+    
+    for (const face of faces) {
+      try {
+        if (face.face_crop_path && fs.existsSync(face.face_crop_path)) {
+          fs.unlinkSync(face.face_crop_path);
+          deletedFiles++;
+        }
+        if (face.thumbnail_path && fs.existsSync(face.thumbnail_path)) {
+          fs.unlinkSync(face.thumbnail_path);
+          deletedFiles++;
+        }
+      } catch (fileError) {
+        console.warn('Could not delete face image file:', fileError.message);
+        failedFiles++;
+      }
+    }
+    
+    // Try to clean up empty directories
+    try {
+      const uploadsDir = process.env.UPLOADS_DIR || './uploads';
+      const facesDir = path.join(uploadsDir, 'faces');
+      const thumbnailsDir = path.join(uploadsDir, 'thumbnails');
+      
+      // Remove empty subdirectories in faces and thumbnails
+      if (fs.existsSync(facesDir)) {
+        const faceSubdirs = fs.readdirSync(facesDir);
+        for (const subdir of faceSubdirs) {
+          const subdirPath = path.join(facesDir, subdir);
+          if (fs.statSync(subdirPath).isDirectory()) {
+            try {
+              fs.rmdirSync(subdirPath);
+            } catch (err) {
+              // Directory not empty or other error, ignore
+            }
+          }
+        }
+      }
+      
+      if (fs.existsSync(thumbnailsDir)) {
+        const thumbSubdirs = fs.readdirSync(thumbnailsDir);
+        for (const subdir of thumbSubdirs) {
+          const subdirPath = path.join(thumbnailsDir, subdir);
+          if (fs.statSync(subdirPath).isDirectory()) {
+            try {
+              fs.rmdirSync(subdirPath);
+            } catch (err) {
+              // Directory not empty or other error, ignore
+            }
+          }
+        }
+      }
+    } catch (cleanupError) {
+      console.warn('Could not clean up directories:', cleanupError.message);
+    }
+    
+    // Broadcast face data cleared event
+    const { broadcast } = require('../websocket/handler');
+    broadcast({
+      type: 'face_data_cleared',
+      data: { 
+        deleted_faces: facesResult.changes,
+        deleted_persons: personsResult.changes,
+        deleted_files: deletedFiles,
+        failed_files: failedFiles,
+        timestamp: new Date().toISOString()
+      }
+    });
+    
+    res.json({
+      success: true,
+      message: 'All face data cleared successfully',
+      data: {
+        deleted_faces: facesResult.changes,
+        deleted_persons: personsResult.changes,
+        deleted_files: deletedFiles,
+        failed_files: failedFiles,
+        original_counts: {
+          faces: faceCount,
+          persons: personCount
+        },
+        cleared_at: new Date().toISOString()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error clearing all face data:', error);
+    res.status(500).json({ error: 'Failed to clear face data' });
   }
 });
 

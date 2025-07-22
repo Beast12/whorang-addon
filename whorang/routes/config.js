@@ -109,4 +109,159 @@ router.post('/webhook/test', (req, res) => {
   }
 });
 
+// Get face recognition configuration
+router.get('/face-recognition', (req, res) => {
+  const db = require('../config/database').getDatabase();
+  
+  try {
+    const stmt = db.prepare('SELECT * FROM face_recognition_config LIMIT 1');
+    const config = stmt.get();
+    
+    if (!config) {
+      // Return default configuration if none exists
+      res.json({
+        ai_provider: 'gemini',
+        api_key: null,
+        openai_api_key: null,
+        ollama_url: 'http://localhost:11434',
+        current_ai_model: 'gemini-1.5-flash',
+        openai_model: 'gpt-4o',
+        ollama_model: 'llava-phi3:latest',
+        confidence_threshold: 0.6,
+        training_images_per_person: 3
+      });
+    } else {
+      res.json(config);
+    }
+  } catch (err) {
+    console.error('Error getting face recognition config:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update face recognition configuration
+router.put('/face-recognition', (req, res) => {
+  const db = require('../config/database').getDatabase();
+  const {
+    ai_provider,
+    api_key,
+    openai_api_key,
+    ollama_url,
+    current_ai_model,
+    openai_model,
+    ollama_model,
+    confidence_threshold,
+    training_images_per_person
+  } = req.body;
+  
+  try {
+    const stmt = db.prepare('SELECT id FROM face_recognition_config LIMIT 1');
+    const existing = stmt.get();
+    
+    if (existing) {
+      const updateStmt = db.prepare(`
+        UPDATE face_recognition_config 
+        SET 
+          ai_provider = ?,
+          api_key = ?,
+          openai_api_key = ?,
+          ollama_url = ?,
+          current_ai_model = ?,
+          openai_model = ?,
+          ollama_model = ?,
+          confidence_threshold = ?,
+          training_images_per_person = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `);
+      updateStmt.run(
+        ai_provider, api_key, openai_api_key, ollama_url,
+        current_ai_model, openai_model, ollama_model,
+        confidence_threshold, training_images_per_person,
+        existing.id
+      );
+    } else {
+      const insertStmt = db.prepare(`
+        INSERT INTO face_recognition_config (
+          ai_provider, api_key, openai_api_key, ollama_url,
+          current_ai_model, openai_model, ollama_model,
+          confidence_threshold, training_images_per_person
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      insertStmt.run(
+        ai_provider, api_key, openai_api_key, ollama_url,
+        current_ai_model, openai_model, ollama_model,
+        confidence_threshold, training_images_per_person
+      );
+    }
+    
+    res.json({ 
+      message: 'Face recognition configuration updated successfully'
+    });
+  } catch (err) {
+    console.error('Error updating face recognition config:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reset all configuration to defaults
+router.post('/reset', (req, res) => {
+  const db = require('../config/database').getDatabase();
+  
+  try {
+    // Reset face recognition configuration to defaults (only update columns that exist)
+    const resetFaceConfigStmt = db.prepare(`
+      UPDATE face_recognition_config 
+      SET 
+        ai_provider = 'gemini',
+        confidence_threshold = 0.6,
+        training_images_per_person = 3,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    resetFaceConfigStmt.run();
+    
+    // Reset webhook configuration if table exists
+    try {
+      const resetWebhookStmt = db.prepare(`
+        UPDATE webhook_config 
+        SET 
+          webhook_token = NULL,
+          webhook_path = '/api/webhook/doorbell',
+          updated_at = CURRENT_TIMESTAMP
+      `);
+      resetWebhookStmt.run();
+    } catch (webhookError) {
+      console.log('Webhook config table not found, skipping webhook reset');
+    }
+    
+    // Broadcast configuration reset event
+    try {
+      const { broadcast } = require('../websocket/handler');
+      broadcast({
+        type: 'config_reset',
+        data: { 
+          timestamp: new Date().toISOString(),
+          reset_by: 'admin'
+        }
+      });
+    } catch (wsError) {
+      console.log('WebSocket broadcast failed:', wsError.message);
+    }
+    
+    res.json({ 
+      message: 'All configuration reset to defaults successfully',
+      reset_items: [
+        'Face recognition settings',
+        'AI provider configuration', 
+        'Confidence thresholds',
+        'Model selections',
+        'Processing settings'
+      ]
+    });
+  } catch (err) {
+    console.error('Error resetting configuration:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
