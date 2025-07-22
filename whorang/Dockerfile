@@ -23,7 +23,7 @@ RUN apk add --no-cache \
     freetype-dev
 
 # Copy package files
-COPY whorang/package*.json ./
+COPY package*.json ./
 
 # Install dependencies
 RUN npm install
@@ -53,23 +53,20 @@ RUN apk add --no-cache \
     freetype
 
 # Copy package files
-COPY whorang/package*.json ./
+COPY package*.json ./
 
 # Copy built node_modules from builder stage
 COPY --from=builder /app/node_modules ./node_modules
 
 # Copy source code
-COPY whorang/ .
-
-# Copy Home Assistant integration files to the proper location
-COPY custom_components /config/custom_components
+COPY . .
 
 # Copy nginx configuration files
-COPY whorang/nginx.conf /etc/nginx/nginx.conf
-COPY whorang/backend.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY backend.conf /etc/nginx/conf.d/default.conf
 
 # Copy and set up entrypoint script
-COPY whorang/docker-entrypoint.sh /entrypoint.sh
+COPY docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Create /data directory structure for Home Assistant addon
