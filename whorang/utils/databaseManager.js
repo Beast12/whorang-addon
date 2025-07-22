@@ -1,21 +1,49 @@
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
+const configReader = require('./configReader');
+const pathValidator = require('./pathValidator');
 
 /**
  * Database Manager - Handles database path with fallback options
- * Similar to DirectoryManager but specifically for database files
+ * Uses user-configured database path from Home Assistant add-on or environment variables
  */
 class DatabaseManager {
   constructor() {
-    this.primaryDbPath = process.env.DATABASE_PATH || '/data/whorang.db';
+    // Get user-configured database path
+    this.primaryDbPath = configReader.getDatabasePath();
     this.fallbackDbPath = '/app/whorang.db';
-    this.isDataWritable = process.env.DATA_UPLOADS_WRITABLE === 'true';
+    
+    // Validate the user-configured database path
+    this.validatePrimaryPath();
     
     console.log(`DatabaseManager initialized:`);
-    console.log(`  Primary DB path: ${this.primaryDbPath}`);
+    console.log(`  User-configured DB path: ${this.primaryDbPath}`);
     console.log(`  Fallback DB path: ${this.fallbackDbPath}`);
-    console.log(`  Data writable: ${this.isDataWritable}`);
+    console.log(`  Effective DB path: ${this.getEffectiveDatabasePath()}`);
+  }
+
+  /**
+   * Validate the user-configured primary database path
+   */
+  validatePrimaryPath() {
+    const validation = pathValidator.validateDatabasePath(this.primaryDbPath);
+    
+    if (validation.isValid) {
+      console.log(`✅ User-configured database path is valid: ${this.primaryDbPath}`);
+      this.isDataWritable = true;
+      
+      // Log any warnings
+      if (validation.warnings.length > 0) {
+        validation.warnings.forEach(warning => {
+          console.warn(`⚠️  ${warning}`);
+        });
+      }
+    } else {
+      console.warn(`⚠️  User-configured database path is not accessible: ${validation.error}`);
+      console.warn(`⚠️  Will use fallback path: ${this.fallbackDbPath}`);
+      this.isDataWritable = false;
+    }
   }
 
   /**

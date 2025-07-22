@@ -4,6 +4,10 @@ const cors = require('cors');
 const http = require('http');
 const path = require('path');
 
+// Import configuration and utilities
+const configReader = require('./utils/configReader');
+const pathValidator = require('./utils/pathValidator');
+
 // Import modules
 const { initializeDatabase, closeDatabase } = require('./config/database');
 const { initializeWebSocket } = require('./websocket/handler');
@@ -13,12 +17,25 @@ const { router: webhookRoutes, handleCustomWebhookPaths } = require('./routes/we
 const app = express();
 const server = http.createServer(app);
 
+// Get configuration from user settings (Home Assistant add-on or environment variables)
+const config = configReader.getAll();
 const PORT = process.env.PORT || 3001;
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:8080';
+const CORS_ORIGIN = config.cors_origins.join(',') || 'http://localhost:8080';
 const CORS_MODE = process.env.CORS_MODE || 'auto';
 const WEBHOOK_PATH = process.env.WEBHOOK_PATH || '/api/webhook/doorbell';
 const TRUST_PROXY = process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production';
-const PUBLIC_URL = process.env.PUBLIC_URL || null;
+const PUBLIC_URL = config.public_url || process.env.PUBLIC_URL || null;
+
+// Log configuration status
+console.log('🔧 WhoRang Configuration:');
+console.log(`  Database path: ${config.database_path}`);
+console.log(`  Uploads path: ${config.uploads_path}`);
+console.log(`  AI provider: ${config.ai_provider}`);
+console.log(`  Log level: ${config.log_level}`);
+console.log(`  WebSocket enabled: ${config.websocket_enabled}`);
+console.log(`  CORS enabled: ${config.cors_enabled}`);
+console.log(`  Public URL: ${PUBLIC_URL || 'auto-detected'}`);
+console.log(`  Running as HA add-on: ${configReader.isHomeAssistantAddon()}`);
 
 // Configure proxy trust for production deployments
 if (TRUST_PROXY) {
@@ -204,6 +221,33 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Configuration status endpoint for debugging
+app.get('/api/debug/config', (req, res) => {
+  try {
+    const status = {
+      timestamp: new Date().toISOString(),
+      configReader: configReader.getStatus(),
+      pathValidator: pathValidator.getStatus(),
+      configuration: configReader.getAll(),
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        WHORANG_ADDON_MODE: process.env.WHORANG_ADDON_MODE,
+        DATA_WRITABLE: process.env.DATA_WRITABLE,
+        PORT: process.env.PORT
+      }
+    };
+    
+    res.status(200).json(status);
+  } catch (error) {
+    console.error('Error getting configuration status:', error);
+    res.status(500).json({ 
+      error: 'Failed to get configuration status',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Directory status endpoint for debugging upload issues
 app.get('/api/debug/directories', (req, res) => {
   try {
@@ -220,7 +264,8 @@ app.get('/api/debug/directories', (req, res) => {
         NODE_ENV: process.env.NODE_ENV,
         UPLOADS_PATH: process.env.UPLOADS_PATH,
         DATABASE_PATH: process.env.DATABASE_PATH,
-        DATA_UPLOADS_WRITABLE: process.env.DATA_UPLOADS_WRITABLE
+        DATA_UPLOADS_WRITABLE: process.env.DATA_UPLOADS_WRITABLE,
+        DATA_WRITABLE: process.env.DATA_WRITABLE
       },
       persistenceWarnings: []
     };

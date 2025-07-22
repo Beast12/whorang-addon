@@ -1,24 +1,52 @@
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
+const configReader = require('./configReader');
+const pathValidator = require('./pathValidator');
 
 /**
  * Directory Manager - Handles directory creation with fallback options
- * for Home Assistant addon environments where /data may not be writable
+ * Uses user-configured paths from Home Assistant add-on or environment variables
  */
 class DirectoryManager {
   constructor() {
-    this.primaryBasePath = process.env.UPLOADS_PATH || '/data/uploads';
+    // Get user-configured uploads path
+    this.primaryBasePath = configReader.getUploadsPath();
     this.fallbackBasePath = '/app/uploads';
-    this.isDataWritable = process.env.DATA_UPLOADS_WRITABLE === 'true';
     
     // Cache for directory existence checks
     this.directoryCache = new Map();
     
+    // Validate the user-configured path
+    this.validatePrimaryPath();
+    
     console.log(`DirectoryManager initialized:`);
-    console.log(`  Primary path: ${this.primaryBasePath}`);
+    console.log(`  User-configured path: ${this.primaryBasePath}`);
     console.log(`  Fallback path: ${this.fallbackBasePath}`);
-    console.log(`  Data writable: ${this.isDataWritable}`);
+    console.log(`  Effective path: ${this.getEffectiveBasePath()}`);
+  }
+
+  /**
+   * Validate the user-configured primary path
+   */
+  validatePrimaryPath() {
+    const validation = pathValidator.validateUploadsPath(this.primaryBasePath);
+    
+    if (validation.isValid) {
+      console.log(`✅ User-configured uploads path is valid: ${this.primaryBasePath}`);
+      this.isDataWritable = true;
+      
+      // Log any warnings
+      if (validation.warnings.length > 0) {
+        validation.warnings.forEach(warning => {
+          console.warn(`⚠️  ${warning}`);
+        });
+      }
+    } else {
+      console.warn(`⚠️  User-configured uploads path is not accessible: ${validation.error}`);
+      console.warn(`⚠️  Will use fallback path: ${this.fallbackBasePath}`);
+      this.isDataWritable = false;
+    }
   }
 
   /**

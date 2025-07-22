@@ -73,8 +73,40 @@ COPY logo.png ./logo.png
 COPY docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Create comprehensive nginx directory structure with proper permissions
+RUN mkdir -p /var/lib/nginx/logs \
+    /var/lib/nginx/tmp \
+    /var/lib/nginx/tmp/client_body \
+    /var/lib/nginx/tmp/proxy_temp \
+    /var/lib/nginx/tmp/fastcgi_temp \
+    /var/lib/nginx/tmp/uwsgi_temp \
+    /var/lib/nginx/tmp/scgi_temp \
+    /var/cache/nginx \
+    /var/cache/nginx/client_temp \
+    /var/cache/nginx/proxy_temp \
+    /var/cache/nginx/fastcgi_temp \
+    /var/cache/nginx/uwsgi_temp \
+    /var/cache/nginx/scgi_temp \
+    /var/log/nginx \
+    /run/nginx
+
 # Create /data directory structure for Home Assistant addon
 RUN mkdir -p /data/uploads/faces /data/uploads/temp /data/uploads/thumbnails
+
+# Create application fallback directories
+RUN mkdir -p /app/uploads/faces /app/uploads/temp /app/uploads/thumbnails /app/data
+
+# Set ownership for nginx directories
+RUN chown -R nginx:nginx /var/lib/nginx \
+    /var/cache/nginx \
+    /var/log/nginx \
+    /run/nginx
+
+# Set proper permissions for nginx directories
+RUN chmod -R 755 /var/lib/nginx \
+    /var/cache/nginx \
+    /var/log/nginx \
+    /run/nginx
 
 # Set ownership of the app directory (except volumes which will be handled by entrypoint)
 RUN chown -R node:node /app
