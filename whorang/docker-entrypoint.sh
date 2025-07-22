@@ -137,6 +137,64 @@ else
     echo "ℹ️  Not running as Home Assistant addon - integration files should be manually installed"
 fi
 
+# Set up addon_config directory for debugging access (HA add-on best practice)
+if [ "$WHORANG_ADDON_MODE" = "true" ] && [ -d "/addon_config" ]; then
+    echo "🔧 Setting up addon_config directory for debugging access..."
+    date +"[%T] Creating addon_config structure"
+    
+    # Create addon_config subdirectories for organized access
+    mkdir -p /addon_config/logs
+    mkdir -p /addon_config/debug
+    mkdir -p /addon_config/database
+    
+    # Create symlinks to important files for user access
+    # Nginx logs (both temp and system locations)
+    ln -sf /tmp/nginx-error.log /addon_config/logs/nginx-error.log 2>/dev/null || true
+    ln -sf /tmp/nginx-access.log /addon_config/logs/nginx-access.log 2>/dev/null || true
+    
+    # Application logs will be symlinked after Node.js starts
+    # Database will be symlinked to user-configured location
+    
+    # Create a README for users
+    cat > /addon_config/README.md << 'EOF'
+# WhoRang Add-on Configuration and Debug Files
+
+This directory provides access to internal WhoRang files for debugging and configuration purposes.
+
+## Directory Structure
+
+### `/logs/`
+- `nginx-error.log` - Nginx error log for troubleshooting web server issues
+- `nginx-access.log` - Nginx access log for monitoring web requests
+- `application.log` - Node.js application logs (created after startup)
+
+### `/debug/`
+- Configuration and debug information files
+- System status and diagnostic information
+
+### `/database/`
+- Symlink to the WhoRang database file for direct access
+- Useful for database inspection and backup
+
+## Usage Notes
+
+- These files are provided for debugging and advanced configuration
+- Modifying files directly may affect add-on operation
+- Always backup before making changes
+- Logs are rotated automatically to prevent disk space issues
+
+## Support
+
+For support and documentation, visit:
+https://github.com/Beast12/whorang-addon
+EOF
+    
+    echo "✅ addon_config directory configured for debugging access"
+    echo "📋 Users can access logs and debug files via /addon_config/"
+else
+    echo "ℹ️  addon_config not available (not running as HA add-on or directory not mounted)"
+fi
+
 # Validate nginx configuration before starting
 echo "🔍 Validating nginx configuration..."
 date +"[%T] Running nginx configuration test"

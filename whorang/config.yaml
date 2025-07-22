@@ -84,6 +84,7 @@ map:
   - backup:rw
   - data:rw
   - config:rw
+  - addon_config:rw
 
 backup: hot
 

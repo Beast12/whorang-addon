@@ -331,6 +331,51 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`💡 Tip: Set PUBLIC_URL environment variable to configure image URLs`);
     console.log(`   Example: PUBLIC_URL=http://your-domain.com:3001`);
   }
+  
+  // Set up addon_config symlinks for debugging access (HA add-on best practice)
+  if (process.env.WHORANG_ADDON_MODE === 'true' && require('fs').existsSync('/addon_config')) {
+    const fs = require('fs');
+    const path = require('path');
+    
+    try {
+      // Create symlink to database file for user access
+      const databaseManager = require('./utils/databaseManager');
+      const dbPath = databaseManager.getEffectivePath();
+      const dbSymlinkPath = '/addon_config/database/whorang.db';
+      
+      // Remove existing symlink if it exists
+      if (fs.existsSync(dbSymlinkPath)) {
+        fs.unlinkSync(dbSymlinkPath);
+      }
+      
+      // Create new symlink to current database location
+      fs.symlinkSync(dbPath, dbSymlinkPath);
+      console.log(`🔗 Database symlink created: /addon_config/database/whorang.db -> ${dbPath}`);
+      
+      // Create debug info file
+      const debugInfo = {
+        timestamp: new Date().toISOString(),
+        version: '2.0.3',
+        configuration: configReader.getAll(),
+        paths: {
+          database: dbPath,
+          uploads: uploadsPath,
+          nginx_logs: '/tmp/nginx-*.log'
+        },
+        environment: {
+          NODE_ENV: process.env.NODE_ENV,
+          WHORANG_ADDON_MODE: process.env.WHORANG_ADDON_MODE,
+          DATA_WRITABLE: process.env.DATA_WRITABLE
+        }
+      };
+      
+      fs.writeFileSync('/addon_config/debug/system-info.json', JSON.stringify(debugInfo, null, 2));
+      console.log(`📋 Debug info created: /addon_config/debug/system-info.json`);
+      
+    } catch (error) {
+      console.warn(`⚠️  Could not set up addon_config symlinks: ${error.message}`);
+    }
+  }
 });
 
 // Graceful shutdown
