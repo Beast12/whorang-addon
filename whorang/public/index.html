@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhoRang AI Doorbell - Dashboard</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="icon" type="image/x-icon" href="/assets/icons/favicon.ico">
+    <meta name="description" content="WhoRang AI-powered doorbell with face recognition and visitor management">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar" id="sidebar">
+            <div class="nav-brand">
+                <div class="nav-logo">WR</div>
+                <div>
+                    <div class="nav-title">WhoRang</div>
+                    <div class="nav-version">v2.0.0</div>
+                </div>
+            </div>
+            
+            <div class="nav-menu">
+                <a href="/" class="nav-item active">
+                    <span class="nav-icon">📊</span>
+                    Dashboard
+                </a>
+                <a href="/faces.html" class="nav-item">
+                    <span class="nav-icon">👤</span>
+                    Face Manager
+                </a>
+                <a href="/persons.html" class="nav-item">
+                    <span class="nav-icon">👥</span>
+                    Known Persons
+                </a>
+                <a href="/settings.html" class="nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    Settings
+                </a>
+                <a href="/api/health" class="nav-item" target="_blank">
+                    <span class="nav-icon">🔧</span>
+                    API Status
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="header-left">
+                    <button class="btn btn-icon btn-secondary" id="sidebarToggle">
+                        <span>☰</span>
+                    </button>
+                    <div>
+                        <h1 class="header-title">Dashboard</h1>
+                        <span class="header-subtitle">AI Doorbell Overview</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="status-indicator" id="connectionStatus">
+                        <span class="loading"></span>
+                        <span>Connecting...</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" id="refreshBtn">
+                        <span>🔄</span>
+                        Refresh
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <div class="dashboard-content">
+                <!-- Statistics Cards -->
+                <div class="grid grid-cols-4" id="statsGrid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Total Visitors</h3>
+                            <span class="nav-icon">👥</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="stat-value" id="totalVisitors">
+                                <span class="loading"></span>
+                            </div>
+                            <div class="stat-label">All time detections</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Known Persons</h3>
+                            <span class="nav-icon">🏷️</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="stat-value" id="knownPersons">
+                                <span class="loading"></span>
+                            </div>
+                            <div class="stat-label">Labeled individuals</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Today's Activity</h3>
+                            <span class="nav-icon">📅</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="stat-value" id="todayActivity">
+                                <span class="loading"></span>
+                            </div>
+                            <div class="stat-label">Detections today</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">System Status</h3>
+                            <span class="nav-icon">💚</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="stat-value" id="systemStatus">
+                                <span class="loading"></span>
+                            </div>
+                            <div class="stat-label">Backend health</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity & Quick Actions -->
+                <div class="grid grid-cols-2">
+                    <!-- Recent Detections -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Recent Detections</h3>
+                            <div class="card-actions">
+                                <button class="btn btn-secondary btn-sm" id="viewAllDetections">
+                                    View All
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="recentDetections">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">🔍</div>
+                                    <div class="empty-state-title">Loading detections...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Quick Actions</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex flex-column gap-md">
+                                <button class="btn btn-primary" onclick="window.location.href='/faces.html'">
+                                    <span>👤</span>
+                                    Manage Unknown Faces
+                                </button>
+                                <button class="btn btn-secondary" onclick="window.location.href='/persons.html'">
+                                    <span>👥</span>
+                                    View Known Persons
+                                </button>
+                                <button class="btn btn-secondary" onclick="window.location.href='/settings.html'">
+                                    <span>⚙️</span>
+                                    Configure Settings
+                                </button>
+                                <button class="btn btn-success" id="triggerDetection">
+                                    <span>🔔</span>
+                                    Test Detection
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Face Recognition Progress -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Face Recognition Progress</h3>
+                        <div class="card-actions">
+                            <span class="text-secondary" id="progressText">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-stats grid grid-cols-3 gap-md" style="margin-top: var(--spacing-md);">
+                                <div class="text-center">
+                                    <div class="stat-value text-success" id="labeledFaces">0</div>
+                                    <div class="stat-label">Labeled</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="stat-value text-warning" id="unknownFaces">0</div>
+                                    <div class="stat-label">Unknown</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="stat-value text-primary" id="totalFaces">0</div>
+                                    <div class="stat-label">Total</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Provider Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">AI Provider Status</h3>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary btn-sm" id="refreshAiStatus">
+                                <span>🔄</span>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="aiProviderStatus">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🤖</div>
+                                <div class="empty-state-title">Loading AI status...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="/js/app.js"></script>
+    <script src="/js/dashboard.js"></script>
+
+    <style>
+        /* Dashboard-specific styles */
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .stat-label {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+        }
+
+        .status-indicator.connected {
+            color: var(--accent-color);
+        }
+
+        .status-indicator.error {
+            color: var(--error-color);
+        }
+
+        .progress-container {
+            width: 100%;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+            border-radius: var(--radius-md);
+            transition: width 0.3s ease;
+        }
+
+        .detection-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            padding: var(--spacing-sm) 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .detection-item:last-child {
+            border-bottom: none;
+        }
+
+        .detection-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-round);
+            background-color: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-size-lg);
+        }
+
+        .detection-info {
+            flex: 1;
+        }
+
+        .detection-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .detection-time {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+        }
+
+        .ai-provider-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-sm) 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .ai-provider-item:last-child {
+            border-bottom: none;
+        }
+
+        .provider-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .provider-status {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-xs);
+            font-weight: 500;
+        }
+
+        .provider-status.active {
+            background-color: var(--accent-color);
+            color: var(--text-inverse);
+        }
+
+        .provider-status.inactive {
+            background-color: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        .provider-status.error {
+            background-color: var(--error-color);
+            color: var(--text-inverse);
+        }
+
+        .toast-container {
+            position: fixed;
+            top: var(--spacing-lg);
+            right: var(--spacing-lg);
+            z-index: var(--z-toast);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+        }
+
+        .toast {
+            background-color: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-3);
+            padding: var(--spacing-md);
+            min-width: 300px;
+            border-left: 4px solid var(--primary-color);
+            animation: slideInRight 0.3s ease;
+        }
+
+        .toast.success {
+            border-left-color: var(--accent-color);
+        }
+
+        .toast.error {
+            border-left-color: var(--error-color);
+        }
+
+        .toast.warning {
+            border-left-color: var(--warning-color);
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</body>
+</html>

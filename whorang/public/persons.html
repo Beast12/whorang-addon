@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhoRang AI Doorbell - Known Persons</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="icon" type="image/x-icon" href="/assets/icons/favicon.ico">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar" id="sidebar">
+            <div class="nav-brand">
+                <div class="nav-logo">WR</div>
+                <div>
+                    <div class="nav-title">WhoRang</div>
+                    <div class="nav-version">v2.0.0</div>
+                </div>
+            </div>
+            
+            <div class="nav-menu">
+                <a href="/" class="nav-item">
+                    <span class="nav-icon">📊</span>
+                    Dashboard
+                </a>
+                <a href="/faces.html" class="nav-item">
+                    <span class="nav-icon">👤</span>
+                    Face Manager
+                </a>
+                <a href="/persons.html" class="nav-item active">
+                    <span class="nav-icon">👥</span>
+                    Known Persons
+                </a>
+                <a href="/settings.html" class="nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    Settings
+                </a>
+                <a href="/api/health" class="nav-item" target="_blank">
+                    <span class="nav-icon">🔧</span>
+                    API Status
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="header-left">
+                    <button class="btn btn-icon btn-secondary" id="sidebarToggle">
+                        <span>☰</span>
+                    </button>
+                    <div>
+                        <h1 class="header-title">Known Persons</h1>
+                        <span class="header-subtitle">Manage recognized individuals</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="status-indicator" id="connectionStatus">
+                        <span class="loading"></span>
+                        <span>Connecting...</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" id="refreshBtn">
+                        <span>🔄</span>
+                        Refresh
+                    </button>
+                </div>
+            </header>
+
+            <!-- Known Persons Content -->
+            <div class="persons-content">
+                <!-- Statistics Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Gallery Statistics</h3>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" id="addPersonBtn">
+                                <span>➕</span>
+                                Add Person
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-grid grid grid-cols-3 gap-md">
+                            <div class="text-center">
+                                <div class="stat-value text-primary" id="totalPersons">0</div>
+                                <div class="stat-label">Known Persons</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="stat-value text-success" id="totalFaces">0</div>
+                                <div class="stat-label">Total Faces</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="stat-value text-warning" id="avgFaces">0</div>
+                                <div class="stat-label">Avg per Person</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Persons Grid -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Recognized Individuals</h3>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary btn-sm" id="manageBtn">
+                                <span>⚙️</span>
+                                Manage All
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="persons-grid grid grid-cols-3 gap-md" id="personsGrid">
+                            <div class="empty-state" style="grid-column: 1 / -1;">
+                                <div class="empty-state-icon">👥</div>
+                                <div class="empty-state-title">Loading persons...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="/js/app.js"></script>
+    <script src="/js/persons.js"></script>
+
+    <style>
+        /* Known Persons specific styles */
+        .persons-grid {
+            min-height: 200px;
+        }
+
+        .person-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            text-align: center;
+            transition: all var(--transition-base);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .person-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-2);
+            border-color: var(--primary-color);
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            margin: 0 auto var(--spacing-md);
+            border-radius: var(--radius-round);
+            overflow: hidden;
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .avatar-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: var(--radius-round);
+        }
+
+        .avatar-placeholder {
+            width: 40px;
+            height: 40px;
+            color: var(--text-secondary);
+            font-size: 40px;
+        }
+
+        .face-count-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: var(--primary-color);
+            color: var(--text-inverse);
+            border-radius: var(--radius-round);
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-size-xs);
+            font-weight: bold;
+            box-shadow: var(--shadow-1);
+        }
+
+        .person-name {
+            font-size: var(--font-size-lg);
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-sm);
+            word-break: break-word;
+        }
+
+        .person-details {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .detail-label {
+            font-weight: 500;
+        }
+
+        .last-seen {
+            color: var(--accent-color);
+        }
+
+        .last-seen.old {
+            color: var(--warning-color);
+        }
+
+        .last-seen.very-old {
+            color: var(--error-color);
+        }
+
+        .stats-grid .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .stats-grid .stat-label {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+        }
+
+        .person-actions {
+            position: absolute;
+            top: var(--spacing-sm);
+            right: var(--spacing-sm);
+            opacity: 0;
+            transition: opacity var(--transition-base);
+        }
+
+        .person-card:hover .person-actions {
+            opacity: 1;
+        }
+
+        .action-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-round);
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .action-btn:hover {
+            background: var(--primary-color);
+            color: var(--text-inverse);
+            border-color: var(--primary-color);
+        }
+
+        .confidence-indicator {
+            position: absolute;
+            bottom: var(--spacing-sm);
+            right: var(--spacing-sm);
+            background: rgba(0,0,0,0.7);
+            color: var(--text-inverse);
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-xs);
+        }
+
+        .confidence-high {
+            background: rgba(76, 175, 80, 0.8);
+        }
+
+        .confidence-medium {
+            background: rgba(255, 152, 0, 0.8);
+        }
+
+        .confidence-low {
+            background: rgba(244, 67, 54, 0.8);
+        }
+    </style>
+</body>
+</html>

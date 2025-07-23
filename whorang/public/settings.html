@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhoRang AI Doorbell - Settings</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="icon" type="image/x-icon" href="/assets/icons/favicon.ico">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar" id="sidebar">
+            <div class="nav-brand">
+                <div class="nav-logo">WR</div>
+                <div>
+                    <div class="nav-title">WhoRang</div>
+                    <div class="nav-version">v2.0.0</div>
+                </div>
+            </div>
+            
+            <div class="nav-menu">
+                <a href="/" class="nav-item">
+                    <span class="nav-icon">📊</span>
+                    Dashboard
+                </a>
+                <a href="/faces.html" class="nav-item">
+                    <span class="nav-icon">👤</span>
+                    Face Manager
+                </a>
+                <a href="/persons.html" class="nav-item">
+                    <span class="nav-icon">👥</span>
+                    Known Persons
+                </a>
+                <a href="/settings.html" class="nav-item active">
+                    <span class="nav-icon">⚙️</span>
+                    Settings
+                </a>
+                <a href="/api/health" class="nav-item" target="_blank">
+                    <span class="nav-icon">🔧</span>
+                    API Status
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="header-left">
+                    <button class="btn btn-icon btn-secondary" id="sidebarToggle">
+                        <span>☰</span>
+                    </button>
+                    <div>
+                        <h1 class="header-title">Settings</h1>
+                        <span class="header-subtitle">Configure WhoRang AI Doorbell</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="status-indicator" id="connectionStatus">
+                        <span class="loading"></span>
+                        <span>Connecting...</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" id="refreshBtn">
+                        <span>🔄</span>
+                        Refresh
+                    </button>
+                </div>
+            </header>
+
+            <!-- Settings Content -->
+            <div class="settings-content">
+                <!-- AI Provider Configuration -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">AI Provider Configuration</h3>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" id="saveAiBtn">
+                                <span>💾</span>
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form id="aiConfigForm">
+                            <div class="form-group">
+                                <label class="form-label">AI Provider</label>
+                                <select class="form-control" id="aiProvider">
+                                    <option value="gemini">Google Gemini</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="ollama">Ollama (Local)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="geminiConfig">
+                                <label class="form-label">Gemini API Key</label>
+                                <input type="password" class="form-control" id="geminiApiKey" placeholder="Enter your Gemini API key">
+                                <small class="text-secondary">Get your API key from Google AI Studio</small>
+                            </div>
+
+                            <div class="form-group" id="openaiConfig" style="display: none;">
+                                <label class="form-label">OpenAI API Key</label>
+                                <input type="password" class="form-control" id="openaiApiKey" placeholder="Enter your OpenAI API key">
+                                <small class="text-secondary">Get your API key from OpenAI Platform</small>
+                            </div>
+
+                            <div class="form-group" id="ollamaConfig" style="display: none;">
+                                <label class="form-label">Ollama Server URL</label>
+                                <input type="url" class="form-control" id="ollamaUrl" placeholder="http://localhost:11434">
+                                <small class="text-secondary">URL of your local Ollama server</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Confidence Threshold</label>
+                                <input type="range" class="form-control" id="confidenceThreshold" min="0.1" max="1.0" step="0.1" value="0.6">
+                                <div class="d-flex justify-between">
+                                    <small class="text-secondary">Low (0.1)</small>
+                                    <small class="text-secondary" id="confidenceValue">0.6</small>
+                                    <small class="text-secondary">High (1.0)</small>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Training Images per Person</label>
+                                <input type="number" class="form-control" id="trainingImages" min="1" max="10" value="3">
+                                <small class="text-secondary">Number of face samples needed for recognition</small>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Face Recognition Settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Face Recognition Settings</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="faceConfigForm">
+                            <div class="form-group">
+                                <div class="d-flex align-center gap-md">
+                                    <input type="checkbox" id="faceRecognitionEnabled" checked>
+                                    <label class="form-label" for="faceRecognitionEnabled">Enable Face Recognition</label>
+                                </div>
+                                <small class="text-secondary">Turn on/off face detection and recognition</small>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="d-flex align-center gap-md">
+                                    <input type="checkbox" id="backgroundProcessing" checked>
+                                    <label class="form-label" for="backgroundProcessing">Background Processing</label>
+                                </div>
+                                <small class="text-secondary">Process faces in the background for better performance</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Auto-delete Unknown Faces After (days)</label>
+                                <input type="number" class="form-control" id="autoDeleteDays" min="0" max="365" value="0">
+                                <small class="text-secondary">0 = never delete automatically</small>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- System Information -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">System Information</h3>
+                        <div class="card-actions">
+                            <button class="btn btn-secondary btn-sm" id="refreshSystemBtn">
+                                <span>🔄</span>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="system-info" id="systemInfo">
+                            <div class="info-row">
+                                <span class="info-label">Version:</span>
+                                <span class="info-value">v2.0.0</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Backend Status:</span>
+                                <span class="info-value" id="backendStatus">Loading...</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Database:</span>
+                                <span class="info-value" id="databaseStatus">Loading...</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Uploads Directory:</span>
+                                <span class="info-value" id="uploadsStatus">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Danger Zone -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title text-danger">Danger Zone</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-between align-center" style="margin-bottom: var(--spacing-md);">
+                            <div>
+                                <strong>Reset All Settings</strong>
+                                <div class="text-secondary">Reset all configuration to defaults</div>
+                            </div>
+                            <button class="btn btn-danger" id="resetSettingsBtn">Reset Settings</button>
+                        </div>
+                        
+                        <div class="d-flex justify-between align-center" style="margin-bottom: var(--spacing-md);">
+                            <div>
+                                <strong>Clear All Face Data</strong>
+                                <div class="text-secondary">Delete all faces and person data</div>
+                            </div>
+                            <button class="btn btn-danger" id="clearDataBtn">Clear Data</button>
+                        </div>
+
+                        <div class="d-flex justify-between align-center">
+                            <div>
+                                <strong>Restart Backend</strong>
+                                <div class="text-secondary">Restart the WhoRang backend service</div>
+                            </div>
+                            <button class="btn btn-warning" id="restartBtn">Restart</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="/js/app.js"></script>
+    <script src="/js/settings.js"></script>
+
+    <style>
+        /* Settings specific styles */
+        .settings-content {
+            max-width: 800px;
+        }
+
+        .form-group {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .form-label {
+            display: block;
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: var(--font-size-base);
+            color: var(--text-primary);
+            background-color: var(--bg-secondary);
+            transition: border-color var(--transition-fast);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(3, 169, 244, 0.1);
+        }
+
+        .form-control[type="range"] {
+            padding: 0;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+        }
+
+        .form-control[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: var(--radius-round);
+            background: var(--primary-color);
+            cursor: pointer;
+            border: 2px solid var(--bg-secondary);
+            box-shadow: var(--shadow-1);
+        }
+
+        .form-control[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+
+        .system-info {
+            background: var(--bg-tertiary);
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-sm) 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .info-value {
+            color: var(--text-secondary);
+            font-family: monospace;
+        }
+
+        .status-healthy {
+            color: var(--accent-color);
+        }
+
+        .status-warning {
+            color: var(--warning-color);
+        }
+
+        .status-error {
+            color: var(--error-color);
+        }
+
+        .text-danger {
+            color: var(--error-color);
+        }
+
+        .provider-config {
+            background: var(--bg-tertiary);
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            margin-top: var(--spacing-md);
+        }
+
+        .provider-status {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-xs);
+            font-weight: 500;
+        }
+
+        .provider-status.active {
+            background: var(--accent-color);
+            color: var(--text-inverse);
+        }
+
+        .provider-status.inactive {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        .provider-status.error {
+            background: var(--error-color);
+            color: var(--text-inverse);
+        }
+    </style>
+</body>
+</html>
