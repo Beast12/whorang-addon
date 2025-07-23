@@ -40,6 +40,7 @@ ARG BUILD_ARCH
 WORKDIR /app
 
 # Install Node.js, nginx, sqlite, curl, and other runtime dependencies including canvas runtime deps
+# Also install build dependencies to rebuild native modules for the target architecture
 RUN apk add --no-cache \
     nodejs \
     npm \
@@ -55,13 +56,29 @@ RUN apk add --no-cache \
     pixman \
     pangomm \
     libjpeg-turbo \
-    freetype
+    freetype \
+    python3 \
+    make \
+    g++ \
+    sqlite-dev \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    musl-dev \
+    giflib-dev \
+    pixman-dev \
+    pangomm-dev \
+    libjpeg-turbo-dev \
+    freetype-dev
 
 # Copy package files
 COPY package*.json ./
 
 # Copy built node_modules from builder stage
 COPY --from=builder /app/node_modules ./node_modules
+
+# Rebuild native modules for the target architecture
+RUN npm rebuild better-sqlite3 canvas
 
 # Copy source code
 COPY . .
@@ -113,6 +130,9 @@ RUN chmod -R 755 /var/lib/nginx \
     /var/cache/nginx \
     /var/log/nginx \
     /run/nginx
+
+# Create node user for application
+RUN addgroup -g 1000 node && adduser -u 1000 -G node -s /bin/sh -D node
 
 # Set ownership of the app directory (except volumes which will be handled by entrypoint)
 RUN chown -R node:node /app
