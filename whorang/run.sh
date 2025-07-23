@@ -7,12 +7,21 @@
 # Add bashio to path
 export PATH="/usr/bin:$PATH"
 
+# Function to log messages (works in both HA and standalone modes)
+log_info() {
+    if command -v bashio >/dev/null 2>&1 && bashio::supervisor.ping 2>/dev/null; then
+        bashio::log.info "$1"
+    else
+        echo "[INFO] $1"
+    fi
+}
+
 # Set up logging
-bashio::log.info "Starting WhoRang AI Doorbell Add-on..."
+log_info "Starting WhoRang AI Doorbell Add-on..."
 
 # Check if running as Home Assistant add-on
-if bashio::supervisor.ping; then
-    bashio::log.info "Running as Home Assistant add-on"
+if command -v bashio >/dev/null 2>&1 && bashio::supervisor.ping 2>/dev/null; then
+    log_info "Running as Home Assistant add-on"
     export WHORANG_ADDON_MODE=true
     
     # Read configuration from add-on options
@@ -38,10 +47,23 @@ if bashio::supervisor.ping; then
     done
     export CORS_ORIGINS
     
-    bashio::log.info "Configuration loaded from Home Assistant add-on options"
+    log_info "Configuration loaded from Home Assistant add-on options"
 else
-    bashio::log.info "Running as standalone Docker container"
+    log_info "Running as standalone Docker container"
     export WHORANG_ADDON_MODE=false
+    
+    # Set default values for standalone mode
+    export AI_PROVIDER=${AI_PROVIDER:-local}
+    export LOG_LEVEL=${LOG_LEVEL:-info}
+    export DATABASE_PATH=${DATABASE_PATH:-/data/whorang.db}
+    export UPLOADS_PATH=${UPLOADS_PATH:-/data/uploads}
+    export MAX_UPLOAD_SIZE=${MAX_UPLOAD_SIZE:-10}
+    export FACE_RECOGNITION_THRESHOLD=${FACE_RECOGNITION_THRESHOLD:-0.8}
+    export AI_ANALYSIS_TIMEOUT=${AI_ANALYSIS_TIMEOUT:-30}
+    export WEBSOCKET_ENABLED=${WEBSOCKET_ENABLED:-true}
+    export CORS_ENABLED=${CORS_ENABLED:-true}
+    export CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8080}
+    export PUBLIC_URL=${PUBLIC_URL:-}
 fi
 
 # Set Node.js environment
@@ -49,13 +71,13 @@ export NODE_ENV=production
 export PORT=3001
 
 # Log configuration summary
-bashio::log.info "Configuration Summary:"
-bashio::log.info "  - Add-on mode: $WHORANG_ADDON_MODE"
-bashio::log.info "  - AI Provider: ${AI_PROVIDER:-local}"
-bashio::log.info "  - Log Level: ${LOG_LEVEL:-info}"
-bashio::log.info "  - Database Path: ${DATABASE_PATH:-/data/whorang.db}"
-bashio::log.info "  - Uploads Path: ${UPLOADS_PATH:-/data/uploads}"
+log_info "Configuration Summary:"
+log_info "  - Add-on mode: $WHORANG_ADDON_MODE"
+log_info "  - AI Provider: ${AI_PROVIDER:-local}"
+log_info "  - Log Level: ${LOG_LEVEL:-info}"
+log_info "  - Database Path: ${DATABASE_PATH:-/data/whorang.db}"
+log_info "  - Uploads Path: ${UPLOADS_PATH:-/data/uploads}"
 
 # Execute the main startup script
-bashio::log.info "Executing main startup script..."
+log_info "Executing main startup script..."
 exec /docker-entrypoint.sh
