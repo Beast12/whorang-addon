@@ -151,7 +151,7 @@ jobs:
           
           # Wait longer for full startup (60 seconds total)
           echo "⏳ Additional wait for full service startup..."
-          sleep 30
+          sleep 10
           
           if test_web_interface; then
             echo "✅ Web interface test passed"
