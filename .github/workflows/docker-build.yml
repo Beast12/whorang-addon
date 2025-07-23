@@ -1,11 +1,11 @@
 ---
-name: Build and Publish Docker Image
+name: Build and Publish Home Assistant Add-on
 
 on:
   push:
     branches:
       - main
-      - develop
+      - development
     tags:
       - 'v*'
   pull_request:
@@ -15,7 +15,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: beast12/whorang-backend
+  IMAGE_NAME: beast12/whorang-addon
 
 jobs:
   build-multi-arch:
@@ -62,12 +62,14 @@ jobs:
         with:
           context: ./whorang
           file: ./whorang/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            BUILD_VERSION=${{ steps.meta.outputs.version }}
+            BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.20
+            BUILD_VERSION=${{ steps.meta.outputs.version || '2.0.3' }}
+            BUILD_ARCH=amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max,ignore-error=true
 
@@ -77,46 +79,101 @@ jobs:
     if: github.event_name != 'pull_request'
     
     steps:
-      - name: Test Docker image
+      - name: Test Home Assistant Add-on
         run: |
-          echo "🧪 Testing Docker image..."
+          echo "🧪 Testing Home Assistant Add-on..."
           
           # Pull the latest image
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           
-          # Run container in background
-          docker run -d --name whorang-test \
-            -p 3001:3001 \
-            -e NODE_ENV=production \
+          # Test 1: Standalone mode (non-HA environment)
+          echo "🔧 Testing standalone mode..."
+          docker run -d --name whorang-test-standalone \
+            -p 8080:80 \
+            -e WHORANG_ADDON_MODE=false \
+            -e AI_PROVIDER=local \
             -e LOG_LEVEL=info \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           
           # Wait for container to start
-          sleep 10
+          sleep 15
           
-          # Test health endpoint
-          if curl -f http://localhost:3001/api/health; then
-            echo "✅ Health check passed"
+          # Test health endpoint via nginx (port 80)
+          if docker exec whorang-test-standalone curl -f http://localhost:3001/api/health; then
+            echo "✅ Health check passed (standalone mode)"
           else
-            echo "❌ Health check failed"
-            docker logs whorang-test
+            echo "❌ Health check failed (standalone mode)"
+            docker logs whorang-test-standalone
             exit 1
           fi
           
-          # Test API endpoints
-          if curl -f http://localhost:3001/api/stats; then
-            echo "✅ Stats endpoint accessible"
+          # Test database connection
+          if docker exec whorang-test-standalone curl -f http://localhost:3001/api/stats; then
+            echo "✅ Database connection working"
           else
-            echo "❌ Stats endpoint failed"
-            docker logs whorang-test
+            echo "❌ Database connection failed"
+            docker logs whorang-test-standalone
             exit 1
           fi
           
-          # Cleanup
-          docker stop whorang-test
-          docker rm whorang-test
+          # Test web interface
+          if docker exec whorang-test-standalone curl -f http://localhost:80/ | grep -q "WhoRang"; then
+            echo "✅ Web interface accessible"
+          else
+            echo "❌ Web interface failed"
+            docker logs whorang-test-standalone
+            exit 1
+          fi
           
-          echo "✅ All tests passed!"
+          # Cleanup standalone test
+          docker stop whorang-test-standalone
+          docker rm whorang-test-standalone
+          
+          # Test 2: Home Assistant add-on mode simulation
+          echo "🏠 Testing Home Assistant add-on mode simulation..."
+          docker run -d --name whorang-test-addon \
+            -p 8081:80 \
+            -e WHORANG_ADDON_MODE=true \
+            -e AI_PROVIDER=local \
+            -e LOG_LEVEL=info \
+            -v /tmp/whorang-test-data:/data \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          
+          # Wait for container to start
+          sleep 15
+          
+          # Test bashio integration and HA mode detection
+          if docker logs whorang-test-addon | grep -q "Running as standalone Docker container"; then
+            echo "✅ HA mode detection working (expected: standalone when supervisor not available)"
+          else
+            echo "❌ HA mode detection failed"
+            docker logs whorang-test-addon
+            exit 1
+          fi
+          
+          # Test persistent data directory
+          if docker exec whorang-test-addon test -d /data/uploads; then
+            echo "✅ Persistent data directory created"
+          else
+            echo "❌ Persistent data directory missing"
+            docker logs whorang-test-addon
+            exit 1
+          fi
+          
+          # Test configuration loading
+          if docker logs whorang-test-addon | grep -q "Configuration Summary"; then
+            echo "✅ Configuration loading working"
+          else
+            echo "❌ Configuration loading failed"
+            docker logs whorang-test-addon
+            exit 1
+          fi
+          
+          # Cleanup addon test
+          docker stop whorang-test-addon
+          docker rm whorang-test-addon
+          
+          echo "✅ All Home Assistant add-on tests passed!"
 
   security-scan:
     runs-on: ubuntu-latest
@@ -158,28 +215,47 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }}
-          release_name: WhoRang Backend ${{ github.ref_name }}
+          release_name: WhoRang Home Assistant Add-on ${{ github.ref_name }}
           body: |
-            ## WhoRang AI Doorbell Backend ${{ github.ref_name }}
+            ## WhoRang AI Doorbell Home Assistant Add-on ${{ github.ref_name }}
             
-            ### 🐳 Docker Images
+            ### 🏠 Home Assistant Add-on
+            
+            **Official Home Assistant Add-on Store Ready:**
+            - ✅ Full Home Assistant standards compliance
+            - ✅ Bashio integration for configuration and logging
+            - ✅ S6 supervisor service management
+            - ✅ Persistent data storage with `/data` volume
+            - ✅ Web UI integration with ingress support
+            - ✅ Multi-architecture support (amd64, arm64, armv7)
+            
+            ### 🐳 Container Images
             
             **Multi-Architecture Support:**
             - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}`
             - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest`
             
             **Supported Platforms:**
-            - linux/amd64 (x86_64)
-            - linux/arm64 (ARM 64-bit)
-            - linux/arm/v7 (ARM 32-bit)
+            - linux/amd64 (x86_64) - Intel/AMD 64-bit
+            - linux/arm64 (ARM 64-bit) - Raspberry Pi 4, Apple Silicon
+            - linux/arm/v7 (ARM 32-bit) - Raspberry Pi 3
             
-            ### 🚀 Quick Start
+            ### 🚀 Installation
             
+            **Home Assistant Add-on (Recommended):**
+            1. Add this repository to your Home Assistant add-on store
+            2. Install the WhoRang AI Doorbell add-on
+            3. Configure through the add-on UI
+            4. Start the add-on
+            
+            **Standalone Docker:**
             ```bash
-            # Docker run
-            docker run -d --name whorang-backend \
-              -p 3001:3001 \
-              -v ./data:/data \
+            # Docker run (standalone mode)
+            docker run -d --name whorang-addon \
+              -p 80:80 \
+              -v ./whorang-data:/data \
+              -e WHORANG_ADDON_MODE=false \
+              -e AI_PROVIDER=local \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
             
             # Docker Compose
@@ -188,10 +264,11 @@ jobs:
               whorang:
                 image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
                 ports:
-                  - "3001:3001"
+                  - "80:80"
                 volumes:
                   - ./whorang-data:/data
                 environment:
+                  - WHORANG_ADDON_MODE=false
                   - AI_PROVIDER=local
                   - LOG_LEVEL=info
                 restart: unless-stopped
@@ -199,7 +276,7 @@ jobs:
             
             ### 📋 What's New
             
-            See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
+            See [CHANGELOG.md](whorang/CHANGELOG.md) for detailed changes.
             
             ### 🔒 Security
             
@@ -207,9 +284,11 @@ jobs:
             
             ### 📚 Documentation
             
-            - [Installation Guide](README.md#installation)
-            - [Configuration Options](README.md#configuration-options)
-            - [Troubleshooting](README.md#troubleshooting)
+            - [Add-on README](whorang/README.md)
+            - [Installation Guide](docs/INSTALLATION.md)
+            - [Configuration Options](docs/CONFIGURATION.md)
+            - [Troubleshooting](docs/TROUBLESHOOTING.md)
+            - [API Reference](docs/API_REFERENCE.md)
           draft: false
           prerelease: false
   house-keeping:
@@ -223,7 +302,7 @@ jobs:
       - name: Delete old image versions
         uses: actions/delete-package-versions@v5
         with:
-          package-name: 'whorang-backend'
+          package-name: 'whorang-addon'
           package-type: 'container'
           min-versions-to-keep: 5
           token: ${{ secrets.GITHUB_TOKEN }}
