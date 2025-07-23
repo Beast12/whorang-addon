@@ -98,23 +98,28 @@ jobs:
             -e LOG_LEVEL=info \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           
-          # Wait for container to start
-          sleep 15
+          # Wait for container to start and services to be ready
+          echo "⏳ Waiting for services to start..."
+          sleep 30
           
           # Test health endpoint via nginx (port 80)
-          if docker exec whorang-test-standalone curl -f http://localhost:3001/api/health; then
+          echo "🔍 Testing health endpoint..."
+          if docker exec whorang-test-standalone curl -f http://localhost:80/api/health; then
             echo "✅ Health check passed (standalone mode)"
           else
             echo "❌ Health check failed (standalone mode)"
+            echo "📋 Container logs:"
             docker logs whorang-test-standalone
             exit 1
           fi
           
           # Test database connection
-          if docker exec whorang-test-standalone curl -f http://localhost:3001/api/stats; then
+          echo "🔍 Testing database connection..."
+          if docker exec whorang-test-standalone curl -f http://localhost:80/api/stats; then
             echo "✅ Database connection working"
           else
             echo "❌ Database connection failed"
+            echo "📋 Container logs:"
             docker logs whorang-test-standalone
             exit 1
           fi
