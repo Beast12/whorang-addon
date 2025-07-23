@@ -3,7 +3,7 @@ ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.20
 FROM node:22-alpine AS builder
 
 # Build arguments
-ARG BUILD_VERSION=2.0.5
+ARG BUILD_VERSION=2.0.6
 ARG BUILD_ARCH=amd64
 
 WORKDIR /app
