@@ -124,12 +124,39 @@ jobs:
             exit 1
           fi
           
-          # Test web interface
+          # Test web interface with retry logic and content verification
           echo "🔍 Testing web interface..."
-          if docker exec whorang-test-standalone curl -f -s -o /dev/null -w "%{http_code}" http://localhost:80/ | grep -q "200"; then
-            echo "✅ Web interface accessible (HTTP 200)"
+          
+          # Function to test web interface with retries
+          test_web_interface() {
+            local max_attempts=5
+            local attempt=1
+            
+            while [ $attempt -le $max_attempts ]; do
+              echo "  Attempt $attempt/$max_attempts..."
+              
+              # Test HTTP status and content in one go
+              if docker exec whorang-test-standalone curl -f -s http://localhost:80/ | grep -q "WhoRang"; then
+                echo "✅ Web interface working - contains WhoRang text!"
+                return 0
+              fi
+              
+              echo "  ⏳ Waiting 10 seconds before retry..."
+              sleep 10
+              attempt=$((attempt + 1))
+            done
+            
+            return 1
+          }
+          
+          # Wait longer for full startup (60 seconds total)
+          echo "⏳ Additional wait for full service startup..."
+          sleep 30
+          
+          if test_web_interface; then
+            echo "✅ Web interface test passed"
           else
-            echo "❌ Web interface failed (not HTTP 200)"
+            echo "❌ Web interface test failed after $max_attempts attempts"
             echo "📋 Response details:"
             docker exec whorang-test-standalone curl -v http://localhost:80/ || true
             echo "📋 Container logs:"
