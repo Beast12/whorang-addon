@@ -82,6 +82,7 @@ RUN npm rebuild better-sqlite3 canvas
 
 # Copy source code
 COPY . .
+COPY public ./public
 
 # Copy nginx configuration files
 COPY nginx.conf /etc/nginx/nginx.conf
