@@ -195,7 +195,23 @@ else
     echo "ℹ️  addon_config not available (not running as HA add-on or directory not mounted)"
 fi
 
-# Validate nginx configuration before starting
+# Configure nginx access control based on deployment mode
+echo "🔧 Configuring nginx access control..."
+date +"[%T] Setting up access control for deployment mode"
+
+if [ "$WHORANG_ADDON_MODE" = "false" ]; then
+    echo "ℹ️  Standalone mode detected - allowing all access"
+    # Replace restrictive access control with allow all for standalone mode
+    sed -i '/allow 172\.30\.32\.2;/,/# Note: In standalone mode, run\.sh will replace this with '\''allow all;'\''/c\
+    # Standalone mode - allow all access\
+    allow all;' /etc/nginx/conf.d/default.conf
+    echo "✅ Configured nginx for standalone mode (allow all)"
+else
+    echo "ℹ️  Home Assistant add-on mode - using restrictive access control"
+    echo "✅ Nginx configured for HA add-on mode (restricted access)"
+fi
+
+# Validate nginx configuration after modification
 echo "🔍 Validating nginx configuration..."
 date +"[%T] Running nginx configuration test"
 nginx -t
