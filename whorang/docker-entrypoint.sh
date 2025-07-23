@@ -202,7 +202,7 @@ date +"[%T] Setting up access control for deployment mode"
 if [ "$WHORANG_ADDON_MODE" = "false" ]; then
     echo "ℹ️  Standalone mode detected - allowing all access"
     # Replace restrictive access control with allow all for standalone mode
-    sed -i '/allow 172\.30\.32\.2;/,/# Note: In standalone mode, run\.sh will replace this with '\''allow all;'\''/c\
+    sed -i '/allow 172\.30\.32\.2;/,/# Note: In standalone mode, run\.sh will replace this with/c\
     # Standalone mode - allow all access\
     allow all;' /etc/nginx/conf.d/default.conf
     echo "✅ Configured nginx for standalone mode (allow all)"
