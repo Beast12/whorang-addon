@@ -1,10 +1,10 @@
-#!/usr/bin/with-contenv bashio
+#!/bin/sh
 # ==============================================================================
 # WhoRang AI Doorbell Add-on
 # Main entry point for the Home Assistant add-on
 # ==============================================================================
 
-# Add bashio to path
+# Add bashio to path if available
 export PATH="/usr/bin:$PATH"
 
 # Function to log messages (works in both HA and standalone modes)
