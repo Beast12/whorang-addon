@@ -125,10 +125,14 @@ jobs:
           fi
           
           # Test web interface
-          if docker exec whorang-test-standalone curl -f http://localhost:80/ | grep -q "WhoRang"; then
-            echo "✅ Web interface accessible"
+          echo "🔍 Testing web interface..."
+          if docker exec whorang-test-standalone curl -f -s -o /dev/null -w "%{http_code}" http://localhost:80/ | grep -q "200"; then
+            echo "✅ Web interface accessible (HTTP 200)"
           else
-            echo "❌ Web interface failed"
+            echo "❌ Web interface failed (not HTTP 200)"
+            echo "📋 Response details:"
+            docker exec whorang-test-standalone curl -v http://localhost:80/ || true
+            echo "📋 Container logs:"
             docker logs whorang-test-standalone
             exit 1
           fi
