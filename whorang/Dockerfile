@@ -81,6 +81,8 @@ COPY --from=builder /app/node_modules ./node_modules
 RUN npm rebuild better-sqlite3 canvas
 
 # Copy source code
+# Explicitly copy public directory
+COPY public/ ./public/
 COPY . .
 
 # Copy nginx configuration files
