@@ -110,7 +110,6 @@ RUN mkdir -p /var/lib/nginx/logs \
     /var/cache/nginx/fastcgi_temp \
     /var/cache/nginx/uwsgi_temp \
     /var/cache/nginx/scgi_temp \
-    /var/log/nginx \
     /run/nginx
 
 # Create /data directory structure for Home Assistant addon
@@ -122,13 +121,11 @@ RUN mkdir -p /app/uploads/faces /app/uploads/temp /app/uploads/thumbnails /app/d
 # Set ownership for nginx directories
 RUN chown -R nginx:nginx /var/lib/nginx \
     /var/cache/nginx \
-    /var/log/nginx \
     /run/nginx
 
 # Set proper permissions for nginx directories
 RUN chmod -R 755 /var/lib/nginx \
     /var/cache/nginx \
-    /var/log/nginx \
     /run/nginx
 
 # Create node user for application
