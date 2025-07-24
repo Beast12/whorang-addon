@@ -24,7 +24,7 @@ date +"[%T] Creating nginx directory structure"
 
 if [ "$WHORANG_ADDON_MODE" = "true" ]; then
     echo "ℹ️  Home Assistant add-on mode - using writable temp directories"
-    # Create writable temp directories for HA add-on
+    # Create writable temp directories for HA add-on (NO LOG DIRECTORIES)
     mkdir -p /tmp/nginx-client-body \
         /tmp/nginx-proxy \
         /tmp/nginx-fastcgi \
@@ -33,11 +33,11 @@ if [ "$WHORANG_ADDON_MODE" = "true" ]; then
     
     echo "✅ Created nginx temp directories in /tmp"
     echo "ℹ️  Skipping system directory ownership changes (not permitted in HA add-on)"
+    echo "ℹ️  No log directories created - all logs go to stdout/stderr per HA requirements"
 else
     echo "ℹ️  Standalone Docker mode - using system directories"
-    # Create all nginx directories that were defined in Dockerfile
-    mkdir -p /var/lib/nginx/logs \
-        /var/lib/nginx/tmp \
+    # Create nginx directories (NO LOG DIRECTORIES - logs go to stdout/stderr)
+    mkdir -p /var/lib/nginx/tmp \
         /var/lib/nginx/tmp/client_body \
         /var/lib/nginx/tmp/proxy_temp \
         /var/lib/nginx/tmp/fastcgi_temp \
@@ -49,21 +49,18 @@ else
         /var/cache/nginx/fastcgi_temp \
         /var/cache/nginx/uwsgi_temp \
         /var/cache/nginx/scgi_temp \
-        /var/log/nginx \
         /run/nginx
 
-    echo "✅ Created nginx directory structure"
+    echo "✅ Created nginx directory structure (no log directories)"
 
     # Set comprehensive nginx ownership and permissions
     date +"[%T] Setting nginx ownership and permissions"
     chown -R nginx:nginx /var/lib/nginx \
         /var/cache/nginx \
-        /var/log/nginx \
         /run/nginx
 
     chmod -R 755 /var/lib/nginx \
         /var/cache/nginx \
-        /var/log/nginx \
         /run/nginx
 
     echo "✅ Set nginx permissions"
@@ -143,17 +140,12 @@ if [ "$WHORANG_ADDON_MODE" = "true" ] && [ -d "/addon_config" ]; then
     date +"[%T] Creating addon_config structure"
     
     # Create addon_config subdirectories for organized access
-    mkdir -p /addon_config/logs
     mkdir -p /addon_config/debug
     mkdir -p /addon_config/database
     
-    # Create symlinks to important files for user access
-    # Nginx logs (both temp and system locations)
-    ln -sf /tmp/nginx-error.log /addon_config/logs/nginx-error.log 2>/dev/null || true
-    ln -sf /tmp/nginx-access.log /addon_config/logs/nginx-access.log 2>/dev/null || true
-    
-    # Application logs will be symlinked after Node.js starts
-    # Database will be symlinked to user-configured location
+    # Note: No log file symlinks created - all logs go to stdout/stderr per HA requirements
+    # Application logs are available through Home Assistant's log viewer
+    # Database will be symlinked to user-configured location after Node.js starts
     
     # Create a README for users
     cat > /addon_config/README.md << 'EOF'
@@ -163,11 +155,6 @@ This directory provides access to internal WhoRang files for debugging and confi
 
 ## Directory Structure
 
-### `/logs/`
-- `nginx-error.log` - Nginx error log for troubleshooting web server issues
-- `nginx-access.log` - Nginx access log for monitoring web requests
-- `application.log` - Node.js application logs (created after startup)
-
 ### `/debug/`
 - Configuration and debug information files
 - System status and diagnostic information
@@ -176,12 +163,20 @@ This directory provides access to internal WhoRang files for debugging and confi
 - Symlink to the WhoRang database file for direct access
 - Useful for database inspection and backup
 
+## Logging
+
+All logs (nginx and application) are sent to stdout/stderr per Home Assistant add-on requirements.
+To view logs:
+1. Go to Settings → Add-ons → WhoRang AI Doorbell
+2. Click on the "Log" tab
+3. All nginx and application logs will be displayed there
+
 ## Usage Notes
 
 - These files are provided for debugging and advanced configuration
 - Modifying files directly may affect add-on operation
 - Always backup before making changes
-- Logs are rotated automatically to prevent disk space issues
+- All logs are available through Home Assistant's log viewer
 
 ## Support
 
@@ -194,6 +189,22 @@ EOF
 else
     echo "ℹ️  addon_config not available (not running as HA add-on or directory not mounted)"
 fi
+
+# Remove any default nginx configurations that might create log files
+echo "🔍 Checking for conflicting nginx configurations..."
+date +"[%T] Removing default nginx configurations"
+
+# Remove default nginx site configurations that might override our settings
+if [ -f "/etc/nginx/sites-enabled/default" ]; then
+    echo "⚠️  Removing default nginx site configuration"
+    rm -f /etc/nginx/sites-enabled/default
+fi
+
+# Remove any backup configurations
+rm -f /etc/nginx/conf.d/default.conf.backup 2>/dev/null || true
+rm -f /etc/nginx/sites-available/default 2>/dev/null || true
+
+echo "✅ Cleaned up default nginx configurations"
 
 # Configure nginx access control based on deployment mode
 echo "🔧 Configuring nginx access control..."
@@ -211,19 +222,32 @@ else
     echo "✅ Nginx configured for HA add-on mode (restricted access)"
 fi
 
-# Validate nginx configuration after modification
-echo "🔍 Validating nginx configuration..."
-date +"[%T] Running nginx configuration test"
+# Validate nginx configuration for Home Assistant compliance
+echo "🔍 Validating nginx configuration for Home Assistant compliance..."
+date +"[%T] Running nginx configuration test and compliance check"
+
+# First, test nginx configuration syntax
 nginx -t
 
-if [ $? -eq 0 ]; then
-    echo "✅ Nginx configuration is valid"
-else
+if [ $? -ne 0 ]; then
     echo "❌ Nginx configuration test failed"
     echo "📋 Nginx configuration details:"
     nginx -T 2>&1 | head -20
     exit 1
 fi
+
+# Check for file-based logging (violates HA add-on requirements)
+echo "🔍 Checking for file-based logging violations..."
+if nginx -T 2>&1 | grep -E "(error_log|access_log).*\.(log|txt)" | grep -v "/dev/std" | grep -v "off"; then
+    echo "❌ Found file-based logging in nginx config - this violates HA add-on requirements"
+    echo "📋 All logs must go to stdout/stderr only"
+    echo "📋 Problematic log configurations:"
+    nginx -T 2>&1 | grep -E "(error_log|access_log).*\.(log|txt)" | grep -v "/dev/std" | grep -v "off"
+    exit 1
+fi
+
+echo "✅ Nginx configuration is valid and Home Assistant compliant"
+echo "✅ All logs properly configured for stdout/stderr output"
 
 # Start nginx
 echo "🌐 Starting nginx..."

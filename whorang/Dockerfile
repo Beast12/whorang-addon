@@ -99,9 +99,8 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY run.sh /run.sh
 RUN chmod +x /docker-entrypoint.sh /run.sh
 
-# Create comprehensive nginx directory structure with proper permissions
-RUN mkdir -p /var/lib/nginx/logs \
-    /var/lib/nginx/tmp \
+# Create nginx directory structure (NO LOG DIRECTORIES - logs go to stdout/stderr)
+RUN mkdir -p /var/lib/nginx/tmp \
     /var/lib/nginx/tmp/client_body \
     /var/lib/nginx/tmp/proxy_temp \
     /var/lib/nginx/tmp/fastcgi_temp \
