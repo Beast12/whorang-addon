@@ -47,7 +47,6 @@ RUN apk add --no-cache \
     nginx \
     sqlite \
     curl \
-    su-exec \
     gettext \
     cairo \
     jpeg \

@@ -91,7 +91,7 @@ echo "🔍 Validating user-configured paths..."
 date +"[%T] Testing path accessibility"
 
 # Test /data directory write permissions
-if su-exec node touch /data/test_write 2>/dev/null; then
+if touch /data/test_write 2>/dev/null; then
     rm -f /data/test_write
     echo "✅ /data directory is writable"
     export DATA_WRITABLE=true
@@ -279,4 +279,4 @@ echo "  - Integration: Ready for Home Assistant discovery"
 # Switch to node user and start the Node.js application
 echo "🚀 Starting Node.js application as user 'node'..."
 date +"[%T] Starting Node.js backend"
-exec su-exec node npm start
+exec npm start
