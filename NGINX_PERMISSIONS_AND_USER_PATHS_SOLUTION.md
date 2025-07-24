@@ -165,7 +165,7 @@ chown -R nginx:nginx /var/lib/nginx /var/cache/nginx /var/log/nginx /run/nginx
 chmod -R 755 /var/lib/nginx /var/cache/nginx /var/log/nginx /run/nginx
 
 # 4. Path Validation
-if su-exec node touch /data/test_write 2>/dev/null; then
+if touch /data/test_write 2>/dev/null; then
     export DATA_WRITABLE=true
 else
     export DATA_WRITABLE=false
