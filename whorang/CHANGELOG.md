@@ -2,6 +2,25 @@
 
 All notable changes to this add-on will be documented in this file.
 
+## [2.0.7] - 2025-01-24
+
+### Fixed
+- GitHub Actions workflow failures due to missing static files
+- Public directory excluded by .gitignore causing ENOENT errors in CI/CD
+- Incomplete version updates across all configuration files
+
+### Added
+- Enhanced GitHub Actions testing with retry logic and content verification
+- Complete static file management with proper web interface files
+- Comprehensive version consistency across all project files
+- Robust CI/CD pipeline with 5-attempt retry mechanism and extended wait times
+
+### Changed
+- Removed public directory from .gitignore to include static web files
+- Enhanced testing methodology with both HTTP status and content verification
+- Improved error reporting and container log analysis in CI/CD
+- Updated all version references to maintain consistency across the project
+
 ## [2.0.3] - 2025-01-22
 
 ### Fixed
