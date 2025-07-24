@@ -87,6 +87,7 @@ COPY . .
 COPY public /app/public
 
 # Copy nginx configuration files
+RUN rm -f /etc/nginx/conf.d/*.conf
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY backend.conf /etc/nginx/conf.d/default.conf
 
