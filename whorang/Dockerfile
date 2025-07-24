@@ -39,7 +39,7 @@ ARG BUILD_ARCH
 
 WORKDIR /app
 
-# Install Node.js, nginx, sqlite, curl, and other runtime dependencies including canvas runtime deps
+# Install Node.js, nginx, sqlite, curl, su-exec and other runtime dependencies
 # Also install build dependencies to rebuild native modules for the target architecture
 RUN apk add --no-cache \
     nodejs \
@@ -48,6 +48,7 @@ RUN apk add --no-cache \
     sqlite \
     curl \
     gettext \
+    su-exec \
     cairo \
     jpeg \
     pango \
@@ -69,6 +70,14 @@ RUN apk add --no-cache \
     pangomm-dev \
     libjpeg-turbo-dev \
     freetype-dev
+
+# Create node user FIRST (if it doesn't exist) before setting up directories
+RUN if ! id -u node >/dev/null 2>&1; then \
+        addgroup -g 1000 node && \
+        adduser -u 1000 -G node -s /bin/sh -D node; \
+    else \
+        echo "Node user already exists"; \
+    fi
 
 # Copy package files
 COPY package*.json ./
@@ -99,19 +108,14 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY run.sh /run.sh
 RUN chmod +x /docker-entrypoint.sh /run.sh
 
-# Create nginx directory structure (NO LOG DIRECTORIES - logs go to stdout/stderr)
-RUN mkdir -p /var/lib/nginx/tmp \
-    /var/lib/nginx/tmp/client_body \
-    /var/lib/nginx/tmp/proxy_temp \
-    /var/lib/nginx/tmp/fastcgi_temp \
-    /var/lib/nginx/tmp/uwsgi_temp \
-    /var/lib/nginx/tmp/scgi_temp \
+# Create nginx directory structure with proper temp directories
+RUN mkdir -p /tmp/nginx-client-body \
+    /tmp/nginx-proxy \
+    /tmp/nginx-fastcgi \
+    /tmp/nginx-uwsgi \
+    /tmp/nginx-scgi \
+    /var/lib/nginx \
     /var/cache/nginx \
-    /var/cache/nginx/client_temp \
-    /var/cache/nginx/proxy_temp \
-    /var/cache/nginx/fastcgi_temp \
-    /var/cache/nginx/uwsgi_temp \
-    /var/cache/nginx/scgi_temp \
     /run/nginx
 
 # Create /data directory structure for Home Assistant addon
@@ -120,20 +124,30 @@ RUN mkdir -p /data/uploads/faces /data/uploads/temp /data/uploads/thumbnails
 # Create application fallback directories
 RUN mkdir -p /app/uploads/faces /app/uploads/temp /app/uploads/thumbnails /app/data
 
-# Set ownership for nginx directories
-RUN chown -R nginx:nginx /var/lib/nginx \
+# Create custom OpenSSL config for Node.js
+RUN mkdir -p /app/ssl && \
+    echo "# Minimal OpenSSL config for Home Assistant add-on" > /app/ssl/openssl.cnf && \
+    echo "openssl_conf = openssl_init" >> /app/ssl/openssl.cnf && \
+    echo "" >> /app/ssl/openssl.cnf && \
+    echo "[openssl_init]" >> /app/ssl/openssl.cnf && \
+    echo "ssl_conf = ssl_sect" >> /app/ssl/openssl.cnf && \
+    echo "" >> /app/ssl/openssl.cnf && \
+    echo "[ssl_sect]" >> /app/ssl/openssl.cnf && \
+    echo "system_default = system_default_sect" >> /app/ssl/openssl.cnf && \
+    echo "" >> /app/ssl/openssl.cnf && \
+    echo "[system_default_sect]" >> /app/ssl/openssl.cnf
+
+# Set ownership for nginx directories AFTER user creation
+RUN chown -R nginx:nginx /tmp/nginx-* \
+    /var/lib/nginx \
+    /var/cache/nginx \
+    /run/nginx && \
+    chmod -R 755 /tmp/nginx-* \
+    /var/lib/nginx \
     /var/cache/nginx \
     /run/nginx
 
-# Set proper permissions for nginx directories
-RUN chmod -R 755 /var/lib/nginx \
-    /var/cache/nginx \
-    /run/nginx
-
-# Create node user for application
-RUN addgroup -g 1000 node && adduser -u 1000 -G node -s /bin/sh -D node
-
-# Set ownership of the app directory (except volumes which will be handled by entrypoint)
+# Set ownership of the app directory
 RUN chown -R node:node /app
 
 # Try to set ownership of /data directory (may fail in some HA configurations, that's OK)

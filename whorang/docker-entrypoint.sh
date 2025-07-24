@@ -3,6 +3,9 @@
 echo "🚀 Starting WhoRang AI Doorbell Backend with Nginx..."
 date +"[%T] Bootstrap start"
 
+# Set OpenSSL config path to avoid permission issues
+export OPENSSL_CONF="/app/ssl/openssl.cnf"
+
 # Load configuration and validate user-configured paths
 echo "🔧 Loading configuration..."
 date +"[%T] Reading configuration from multiple sources"
@@ -31,8 +34,12 @@ if [ "$WHORANG_ADDON_MODE" = "true" ]; then
         /tmp/nginx-uwsgi \
         /tmp/nginx-scgi
     
+    # Set permissions for nginx temp directories
+    chown -R nginx:nginx /tmp/nginx-* 2>/dev/null || true
+    chmod -R 755 /tmp/nginx-* 2>/dev/null || true
+    
     echo "✅ Created nginx temp directories in /tmp"
-    echo "ℹ️  Skipping system directory ownership changes (not permitted in HA add-on)"
+    echo "ℹ️  Set nginx temp directory permissions"
     echo "ℹ️  No log directories created - all logs go to stdout/stderr per HA requirements"
 else
     echo "ℹ️  Standalone Docker mode - using system directories"
@@ -143,10 +150,6 @@ if [ "$WHORANG_ADDON_MODE" = "true" ] && [ -d "/addon_config" ]; then
     mkdir -p /addon_config/debug
     mkdir -p /addon_config/database
     
-    # Note: No log file symlinks created - all logs go to stdout/stderr per HA requirements
-    # Application logs are available through Home Assistant's log viewer
-    # Database will be symlinked to user-configured location after Node.js starts
-    
     # Create a README for users
     cat > /addon_config/README.md << 'EOF'
 # WhoRang Add-on Configuration and Debug Files
@@ -196,8 +199,8 @@ date +"[%T] Removing default nginx configurations"
 
 # Remove default nginx site configurations that might override our settings
 echo "⚠️  Removing default nginx site configurations"
-rm -f /etc/nginx/sites-enabled/*
-rm -f /etc/nginx/sites-available/*
+rm -f /etc/nginx/sites-enabled/* 2>/dev/null || true
+rm -f /etc/nginx/sites-available/* 2>/dev/null || true
 
 # Remove any backup configurations
 rm -f /etc/nginx/conf.d/default.conf.backup 2>/dev/null || true
@@ -213,7 +216,7 @@ if [ "$WHORANG_ADDON_MODE" = "false" ]; then
     # Replace restrictive access control with allow all for standalone mode
     sed -i '/allow 172\.30\.32\.2;/,/# Note: In standalone mode, run\.sh will replace this with/c\
     # Standalone mode - allow all access\
-    allow all;' /etc/nginx/conf.d/default.conf
+    allow all;' /etc/nginx/conf.d/default.conf 2>/dev/null || true
     echo "✅ Configured nginx for standalone mode (allow all)"
 else
     echo "ℹ️  Home Assistant add-on mode - using restrictive access control"
@@ -253,16 +256,21 @@ date +"[%T] Starting nginx daemon"
 nginx
 
 # Wait for nginx to start and verify
-sleep 3
+sleep 2
 
+# Check if nginx is actually running by looking for processes
 if pgrep nginx > /dev/null; then
     echo "✅ Nginx started successfully"
     echo "📊 Nginx is serving on port 80"
     echo "🔗 Health check available at /health"
+    
+    # Get the master process PID for reference
+    NGINX_MASTER_PID=$(pgrep -f "nginx: master process" | head -1)
+    echo "📋 Nginx master process PID: $NGINX_MASTER_PID"
 else
     echo "❌ Failed to start nginx"
-    echo "📋 Checking nginx error logs:"
-    cat /tmp/nginx-error.log 2>/dev/null || cat /var/log/nginx/error.log 2>/dev/null || echo "No error log available"
+    echo "📋 Checking for nginx processes:"
+    ps aux | grep nginx || echo "No nginx processes found"
     exit 1
 fi
 
@@ -279,8 +287,16 @@ echo "  - Integration: Ready for Home Assistant discovery"
 # Switch to node user and start the Node.js application
 echo "🚀 Starting Node.js application as user 'node'..."
 date +"[%T] Starting Node.js backend"
-# Fix OpenSSL configuration permissions if necessary
-if [ -f /etc/ssl/openssl.cnf ]; then
-    chmod 644 /etc/ssl/openssl.cnf
+
+# Ensure the node user owns the app directory
+chown -R node:node /app 2>/dev/null || true
+
+# Start Node.js as the node user
+if command -v su-exec >/dev/null 2>&1; then
+    exec su-exec node npm start
+elif command -v gosu >/dev/null 2>&1; then
+    exec gosu node npm start
+else
+    # Fallback - use su if available
+    exec su -s /bin/sh node -c "cd /app && npm start"
 fi
-exec npm start
