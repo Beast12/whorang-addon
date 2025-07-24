@@ -279,4 +279,8 @@ echo "  - Integration: Ready for Home Assistant discovery"
 # Switch to node user and start the Node.js application
 echo "🚀 Starting Node.js application as user 'node'..."
 date +"[%T] Starting Node.js backend"
+# Fix OpenSSL configuration permissions if necessary
+if [ -f /etc/ssl/openssl.cnf ]; then
+    chmod 644 /etc/ssl/openssl.cnf
+fi
 exec npm start
