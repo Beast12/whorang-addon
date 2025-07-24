@@ -195,14 +195,12 @@ echo "🔍 Checking for conflicting nginx configurations..."
 date +"[%T] Removing default nginx configurations"
 
 # Remove default nginx site configurations that might override our settings
-if [ -f "/etc/nginx/sites-enabled/default" ]; then
-    echo "⚠️  Removing default nginx site configuration"
-    rm -f /etc/nginx/sites-enabled/default
-fi
+echo "⚠️  Removing default nginx site configurations"
+rm -f /etc/nginx/sites-enabled/*
+rm -f /etc/nginx/sites-available/*
 
 # Remove any backup configurations
 rm -f /etc/nginx/conf.d/default.conf.backup 2>/dev/null || true
-rm -f /etc/nginx/sites-available/default 2>/dev/null || true
 
 echo "✅ Cleaned up default nginx configurations"
 
