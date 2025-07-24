@@ -2,6 +2,24 @@
 
 All notable changes to this add-on will be documented in this file.
 
+## [2.0.8] - 2025-01-24
+
+### Fixed
+- **CRITICAL**: Nginx logging compliance issue preventing Home Assistant add-on startup
+- Nginx permission denied errors when trying to write log files to disk
+- File-based logging violations of Home Assistant add-on requirements
+
+### Changed
+- Updated nginx configuration to use `/dev/stdout` and `/dev/stderr` for all logging
+- Removed all nginx log directory creation from Dockerfile and startup scripts
+- Added comprehensive Home Assistant compliance validation in startup process
+- Enhanced docker-entrypoint.sh with logging compliance checks
+
+### Added
+- Automatic validation to prevent file-based logging violations
+- Improved error messages for Home Assistant add-on compliance issues
+- Updated documentation with nginx logging fix details
+
 ## [2.0.7] - 2025-01-24
 
 ### Fixed

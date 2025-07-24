@@ -2,7 +2,7 @@
 
 **Complete AI-powered doorbell solution with face recognition, multi-provider AI analysis, and seamless Home Assistant integration.**
 
-[![Version](https://img.shields.io/badge/version-2.0.7-blue.svg)](https://github.com/Beast12/whorang-addon/releases)
+[![Version](https://img.shields.io/badge/version-2.0.8-blue.svg)](https://github.com/Beast12/whorang-addon/releases)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-green.svg)](https://www.home-assistant.io/)
 [![Docker](https://img.shields.io/badge/Docker-Supported-blue.svg)](https://hub.docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
