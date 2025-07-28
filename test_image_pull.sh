@@ -3,7 +3,7 @@
 # Test script to verify Docker image pull
 
 IMAGE_NAME="ghcr.io/beast12/whorang-addon"
-VERSION="2.0.13"
+VERSION="2.0.14"
 
 echo "🔍 Testing Docker image pull for WhoRang AI Doorbell"
 echo "Image: $IMAGE_NAME:$VERSION"
