@@ -146,14 +146,15 @@ RUN chown -R nobody:nobody /tmp/nginx-* \
     /var/lib/nginx \
     /var/cache/nginx \
     /run/nginx && \
-    # Make directories more permissive to prevent chown errors
-    chmod -R 777 /tmp/nginx-* \
+    # Make directories group-writable to prevent chown errors
+    chmod -R 775 /tmp/nginx-* \
     /var/lib/nginx \
     /var/cache/nginx \
     /run/nginx
 
 # Set ownership of the app directory
 RUN chown -R node:node /app
+RUN chmod -R 755 /app
 
 # Try to set ownership of /data directory (may fail in some HA configurations, that's OK)
 RUN chown -R node:node /data 2>/dev/null || echo "Warning: Could not set ownership of /data directory"

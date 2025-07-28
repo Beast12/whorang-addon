@@ -35,9 +35,9 @@ if [ "$WHORANG_ADDON_MODE" = "true" ]; then
         /tmp/nginx-scgi
     
     # Set permissions for nginx temp directories (use nobody user)
-    # Make directories world-writable to prevent chown errors in HA OS
+    # Make directories group-writable to prevent chown errors in HA OS
     chown -R nobody:nobody /tmp/nginx-* 2>/dev/null || true
-    chmod -R 777 /tmp/nginx-* 2>/dev/null || true
+    chmod -R 775 /tmp/nginx-* 2>/dev/null || true
     
     echo "✅ Created nginx temp directories in /tmp"
     echo "ℹ️  Set nginx temp directory permissions"
@@ -67,8 +67,8 @@ else
         /var/cache/nginx \
         /run/nginx
 
-    # Make directories more permissive to prevent chown errors
-    chmod -R 777 /var/lib/nginx \
+    # Make directories group-writable to prevent chown errors
+    chmod -R 775 /var/lib/nginx \
         /var/cache/nginx \
         /run/nginx
 
@@ -256,7 +256,8 @@ echo "✅ All logs properly configured for stdout/stderr output"
 echo "🌐 Starting nginx..."
 date +"[%T] Starting nginx daemon"
 # Start nginx with explicit error log and no default log file creation
-nginx -g "error_log /dev/stdout debug;"
+# Use master_process off to prevent worker processes from trying to change user/group
+nginx -g "error_log /dev/stdout debug; master_process off;"
 
 # Wait for nginx to start and verify
 sleep 2
@@ -287,30 +288,35 @@ echo "  - Nginx: Running on port 80"
 echo "  - Backend: Will start on port 3001"
 echo "  - Integration: Ready for Home Assistant discovery"
 
-# Switch to node user and start the Node.js application
-echo "🚀 Starting Node.js application as user 'node'..."
+# Start the Node.js application
+echo "🚀 Starting Node.js application..."
 date +"[%T] Starting Node.js backend"
 
-# In Home Assistant OS, we may not be able to change ownership, so we'll start Node.js directly
-# but with proper environment variables
+# Set proper environment for Node.js
+export NODE_ENV=production
+export HOME=/app
+export PATH="/usr/local/bin:$PATH"
+
+cd /app
+
+# In Home Assistant OS, run Node.js directly to avoid permission issues
 if [ "$WHORANG_ADDON_MODE" = "true" ]; then
     echo "ℹ️  Running in Home Assistant add-on mode - starting Node.js directly"
-    # Set proper environment for Node.js
-    export NODE_ENV=production
-    export HOME=/app
-    cd /app
-    exec npm start
+    # Ensure we have proper permissions on the app directory
+    chmod -R 755 /app 2>/dev/null || true
+    # Start Node.js directly without switching users
+    exec node server.js
 else
     # Ensure the node user owns the app directory
     chown -R node:node /app 2>/dev/null || true
     
     # Start Node.js as the node user
     if command -v su-exec >/dev/null 2>&1; then
-        exec su-exec node npm start
+        exec su-exec node node server.js
     elif command -v gosu >/dev/null 2>&1; then
-        exec gosu node npm start
+        exec gosu node node server.js
     else
         # Fallback - use su if available
-        exec su -s /bin/sh node -c "cd /app && npm start"
+        exec su -s /bin/sh node -c "cd /app && node server.js"
     fi
 fi
