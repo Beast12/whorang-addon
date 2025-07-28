@@ -146,7 +146,8 @@ RUN chown -R nobody:nobody /tmp/nginx-* \
     /var/lib/nginx \
     /var/cache/nginx \
     /run/nginx && \
-    chmod -R 755 /tmp/nginx-* \
+    # Make directories more permissive to prevent chown errors
+    chmod -R 777 /tmp/nginx-* \
     /var/lib/nginx \
     /var/cache/nginx \
     /run/nginx

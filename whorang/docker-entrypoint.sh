@@ -35,8 +35,9 @@ if [ "$WHORANG_ADDON_MODE" = "true" ]; then
         /tmp/nginx-scgi
     
     # Set permissions for nginx temp directories (use nobody user)
+    # Make directories world-writable to prevent chown errors in HA OS
     chown -R nobody:nobody /tmp/nginx-* 2>/dev/null || true
-    chmod -R 755 /tmp/nginx-* 2>/dev/null || true
+    chmod -R 777 /tmp/nginx-* 2>/dev/null || true
     
     echo "✅ Created nginx temp directories in /tmp"
     echo "ℹ️  Set nginx temp directory permissions"
@@ -66,7 +67,8 @@ else
         /var/cache/nginx \
         /run/nginx
 
-    chmod -R 755 /var/lib/nginx \
+    # Make directories more permissive to prevent chown errors
+    chmod -R 777 /var/lib/nginx \
         /var/cache/nginx \
         /run/nginx
 
