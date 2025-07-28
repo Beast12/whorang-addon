@@ -76,15 +76,57 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max,ignore-error=true
 
-      - name: Ensure image visibility
+      - name: Build and push architecture-specific images
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         run: |
-          # Make the package public
+          # Build and push separate images for each architecture
+          # This is required for Home Assistant addon compatibility
+          
+          # Extract the main tag
+          MAIN_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)
+          
+          # Build and push for each architecture
+          for arch in amd64 arm64 arm/v7; do
+            echo "Building and pushing for $arch..."
+            
+            # Map arch to platform
+            case $arch in
+              amd64)  PLATFORM="linux/amd64" ;;
+              arm64)  PLATFORM="linux/arm64" ;;
+              arm/v7) PLATFORM="linux/arm/v7" ;;
+            esac
+            
+            # Build and push the architecture-specific image
+            docker buildx build \
+              --platform $PLATFORM \
+              --tag ghcr.io/beast12/whorang-addon/$arch:${MAIN_TAG#ghcr.io/beast12/whorang-addon:} \
+              --push \
+              --build-arg BUILD_FROM=ghcr.io/home-assistant/${arch}-base:3.20 \
+              --build-arg BUILD_VERSION=${{ steps.meta.outputs.version || '2.0.3' }} \
+              --build-arg BUILD_ARCH=$arch \
+              ./whorang
+          done
+
+      - name: Make container images public
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          # Make the main package public
           curl -X PATCH \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/user/packages/container/whorang-addon/visibility \
             -d '{"visibility":"public"}'
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+          
+          # Make specific architecture packages public
+          for arch in amd64 arm64 arm/v7; do
+            # URL encode the arch for the API call
+            encoded_arch=$(echo "$arch" | sed 's/\//%2F/g')
+            curl -X PATCH \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/user/packages/container/whorang-addon%2F$encoded_arch/visibility \
+              -d '{"visibility":"public"}' 2>/dev/null || true
+          done
 
   test-image:
     runs-on: ubuntu-latest
