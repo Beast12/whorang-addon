@@ -288,15 +288,26 @@ echo "  - Integration: Ready for Home Assistant discovery"
 echo "🚀 Starting Node.js application as user 'node'..."
 date +"[%T] Starting Node.js backend"
 
-# Ensure the node user owns the app directory
-chown -R node:node /app 2>/dev/null || true
-
-# Start Node.js as the node user
-if command -v su-exec >/dev/null 2>&1; then
-    exec su-exec node npm start
-elif command -v gosu >/dev/null 2>&1; then
-    exec gosu node npm start
+# In Home Assistant OS, we may not be able to change ownership, so we'll start Node.js directly
+# but with proper environment variables
+if [ "$WHORANG_ADDON_MODE" = "true" ]; then
+    echo "ℹ️  Running in Home Assistant add-on mode - starting Node.js directly"
+    # Set proper environment for Node.js
+    export NODE_ENV=production
+    export HOME=/app
+    cd /app
+    exec npm start
 else
-    # Fallback - use su if available
-    exec su -s /bin/sh node -c "cd /app && npm start"
+    # Ensure the node user owns the app directory
+    chown -R node:node /app 2>/dev/null || true
+    
+    # Start Node.js as the node user
+    if command -v su-exec >/dev/null 2>&1; then
+        exec su-exec node npm start
+    elif command -v gosu >/dev/null 2>&1; then
+        exec gosu node npm start
+    else
+        # Fallback - use su if available
+        exec su -s /bin/sh node -c "cd /app && npm start"
+    fi
 fi

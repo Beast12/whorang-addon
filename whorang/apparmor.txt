@@ -136,6 +136,8 @@ profile whorang flags=(attach_disconnected,mediate_deleted) {
     /etc/nsswitch.conf r,
 
     # Process control
+    capability setgid,
+    capability setuid,
     /dev/null rw,
     /dev/zero r,
     /dev/urandom r,

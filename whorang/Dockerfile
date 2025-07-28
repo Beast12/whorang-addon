@@ -71,12 +71,16 @@ RUN apk add --no-cache \
     libjpeg-turbo-dev \
     freetype-dev
 
-# Create node user FIRST (if it doesn't exist) before setting up directories
-RUN if ! id -u node >/dev/null 2>&1; then \
-        addgroup -g 1000 node && \
-        adduser -u 1000 -G node -s /bin/sh -D node; \
-    else \
-        echo "Node user already exists"; \
+# Create node user and group with standard IDs for better compatibility
+RUN addgroup -S -g 1000 node && \
+    adduser -S -u 1000 -G node -s /bin/sh -D node
+
+# Create nginx group and user if they don't exist
+RUN if ! getent group nginx >/dev/null 2>&1; then \
+        addgroup -S nginx; \
+    fi && \
+    if ! getent passwd nginx >/dev/null 2>&1; then \
+        adduser -S -G nginx -s /bin/sh -D nginx; \
     fi
 
 # Copy package files
