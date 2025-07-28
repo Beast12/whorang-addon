@@ -253,7 +253,7 @@ echo "✅ All logs properly configured for stdout/stderr output"
 # Start nginx
 echo "🌐 Starting nginx..."
 date +"[%T] Starting nginx daemon"
-nginx
+nginx -g "daemon off; error_log /dev/stdout debug;"
 
 # Wait for nginx to start and verify
 sleep 2
