@@ -142,7 +142,7 @@ RUN mkdir -p /app/ssl && \
     echo "[system_default_sect]" >> /app/ssl/openssl.cnf
 
 # Set ownership for nginx directories AFTER user creation
-RUN chown -R nginx:nginx /tmp/nginx-* \
+RUN chown -R nobody:nobody /tmp/nginx-* \
     /var/lib/nginx \
     /var/cache/nginx \
     /run/nginx && \

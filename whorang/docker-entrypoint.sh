@@ -34,8 +34,8 @@ if [ "$WHORANG_ADDON_MODE" = "true" ]; then
         /tmp/nginx-uwsgi \
         /tmp/nginx-scgi
     
-    # Set permissions for nginx temp directories
-    chown -R nginx:nginx /tmp/nginx-* 2>/dev/null || true
+    # Set permissions for nginx temp directories (use nobody user)
+    chown -R nobody:nobody /tmp/nginx-* 2>/dev/null || true
     chmod -R 755 /tmp/nginx-* 2>/dev/null || true
     
     echo "✅ Created nginx temp directories in /tmp"
@@ -62,7 +62,7 @@ else
 
     # Set comprehensive nginx ownership and permissions
     date +"[%T] Setting nginx ownership and permissions"
-    chown -R nginx:nginx /var/lib/nginx \
+    chown -R nobody:nobody /var/lib/nginx \
         /var/cache/nginx \
         /run/nginx
 
@@ -253,6 +253,7 @@ echo "✅ All logs properly configured for stdout/stderr output"
 # Start nginx
 echo "🌐 Starting nginx..."
 date +"[%T] Starting nginx daemon"
+# Start nginx with explicit error log and no default log file creation
 nginx -g "error_log /dev/stdout debug;"
 
 # Wait for nginx to start and verify
