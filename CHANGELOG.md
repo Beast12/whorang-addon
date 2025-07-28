@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.15] - 2025-07-28
+
+### Fixed
+- **Home Assistant Addon Startup**: Resolved nginx setgid permission errors and su-exec setgroups errors in Home Assistant OS
+- **Docker Image Pull**: Fixed 403/404 errors when installing addon by publishing both multi-arch manifest and architecture-specific images
+- **AppArmor Profile**: Added capability setgid and setuid to allow nginx to change user and group IDs
+- **Nginx Configuration**: Changed user directive from 'nginx nginx' to 'nobody' for better HA OS compatibility
+- **Dockerfile**: Improved user and group creation with standard Alpine Linux commands
+- **Entrypoint Script**: Modified to detect HA OS mode and start Node.js directly without user switching
+- **GitHub Actions Workflow**: Updated to publish both multi-arch manifest and separate architecture-specific images for Home Assistant compatibility
+- **Image Visibility**: Made all GHCR packages public including architecture-specific packages
+
+### Changed
+- **Addon Configuration**: Updated image reference to use architecture-specific path format expected by Home Assistant
+- **Version**: Bumped to v2.0.15 to reflect all fixes and improvements
+
 ## [2.0.1] - 2025-01-22
 
 ### Added
