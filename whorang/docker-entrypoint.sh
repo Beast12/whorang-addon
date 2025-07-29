@@ -39,16 +39,17 @@ date +"[%T] Creating nginx directory structure"
 if [ "$WHORANG_ADDON_MODE" = "true" ]; then
     echo "ℹ️  Home Assistant add-on mode - using writable temp directories"
     # Create writable temp directories for HA add-on (NO LOG DIRECTORIES)
+    # Use /tmp for all temp directories as it's writable in HA OS
     mkdir -p /tmp/nginx-client-body \
         /tmp/nginx-proxy \
         /tmp/nginx-fastcgi \
         /tmp/nginx-uwsgi \
-        /tmp/nginx-scgi
+        /tmp/nginx-scgi 2>/dev/null || true
     
-    # Set permissions for nginx temp directories (use nobody user)
-    # Make directories group-writable to prevent chown errors in HA OS
-    chown -R nobody:nobody /tmp/nginx-* 2>/dev/null || true
-    chmod -R 775 /tmp/nginx-* 2>/dev/null || true
+    # Set permissions for nginx temp directories
+    # In HA OS, we need to be careful with permissions
+    # Use 755 for directories to prevent chown errors
+    chmod -R 755 /tmp/nginx-* 2>/dev/null || true
     
     echo "✅ Created nginx temp directories in /tmp"
     echo "ℹ️  Set nginx temp directory permissions"
@@ -76,12 +77,12 @@ else
     date +"[%T] Setting nginx ownership and permissions"
     chown -R nobody:nobody /var/lib/nginx \
         /var/cache/nginx \
-        /run/nginx
+        /run/nginx 2>/dev/null || true
 
     # Make directories group-writable to prevent chown errors
-    chmod -R 775 /var/lib/nginx \
+    chmod -R 755 /var/lib/nginx \
         /var/cache/nginx \
-        /run/nginx
+        /run/nginx 2>/dev/null || true
 
     echo "✅ Set nginx permissions"
 fi
@@ -89,13 +90,15 @@ fi
 # Create default application directories (fallback)
 echo "📁 Setting up application directories..."
 date +"[%T] Creating application fallback directories"
-mkdir -p /app/uploads/faces /app/uploads/temp /app/uploads/thumbnails /app/data
+mkdir -p /app/uploads/faces /app/uploads/temp /app/uploads/thumbnails /app/data 2>/dev/null || true
 
 if [ "$WHORANG_ADDON_MODE" = "true" ]; then
     echo "ℹ️  Skipping application directory ownership changes (not permitted in HA add-on)"
+    # In HA mode, make directories more permissive but avoid chown
+    chmod -R 755 /app/uploads /app/data 2>/dev/null || true
 else
-    chown -R node:node /app/uploads /app/data
-    chmod -R 755 /app/uploads /app/data
+    chown -R node:node /app/uploads /app/data 2>/dev/null || true
+    chmod -R 755 /app/uploads /app/data 2>/dev/null || true
 fi
 
 echo "✅ Created application directories"
@@ -268,7 +271,13 @@ echo "🌐 Starting nginx..."
 date +"[%T] Starting nginx daemon"
 # Start nginx with explicit error log and no default log file creation
 # Use master_process off to prevent worker processes from trying to change user/group
-nginx -g "error_log /dev/stdout debug; master_process off;"
+# In HA mode, we need to be more careful with nginx startup
+if [ "$WHORANG_ADDON_MODE" = "true" ]; then
+    # For HA add-on mode, use a more conservative approach
+    nginx -g "error_log /dev/stderr info; access_log /dev/stdout; daemon off; master_process off; worker_processes 1;"
+else
+    nginx -g "error_log /dev/stdout debug; master_process off;"
+fi
 
 # Wait for nginx to start and verify
 sleep 2
@@ -317,9 +326,15 @@ if [ "$WHORANG_ADDON_MODE" = "true" ]; then
     chmod -R 755 /app 2>/dev/null || true
     
     # Ensure node_modules has proper permissions for native modules in HA mode
+    # In HA OS, we need to be more careful with permissions
     find /app/node_modules -type d -exec chmod 755 {} \; 2>/dev/null || true
     find /app/node_modules -type f -exec chmod 644 {} \; 2>/dev/null || true
     find /app/node_modules -name "*.node" -exec chmod 755 {} \; 2>/dev/null || true
+    
+    # Additional permissions for native modules in Home Assistant OS
+    find /app/node_modules -name "*.node" -exec chown node:node {} \; 2>/dev/null || true
+    find /app/node_modules -path "*/build/Release/*.node" -exec chmod 755 {} \; 2>/dev/null || true
+    find /app/node_modules -path "*/build/Release/*.node" -exec chown node:node {} \; 2>/dev/null || true
     
     # Log current environment for debugging
     echo "🔧 Environment variables for Node.js:"
@@ -331,19 +346,10 @@ if [ "$WHORANG_ADDON_MODE" = "true" ]; then
     
     # Start Node.js directly without switching users
     # Ensure all environment variables are passed
-    exec env WHORANG_ADDON_MODE="$WHORANG_ADDON_MODE" \
-         DATABASE_PATH="$DATABASE_PATH" \
-         UPLOADS_PATH="$UPLOADS_PATH" \
-         AI_PROVIDER="$AI_PROVIDER" \
-         LOG_LEVEL="$LOG_LEVEL" \
-         WEBSOCKET_ENABLED="$WEBSOCKET_ENABLED" \
-         CORS_ENABLED="$CORS_ENABLED" \
-         CORS_ORIGINS="$CORS_ORIGINS" \
-         PUBLIC_URL="$PUBLIC_URL" \
-         MAX_UPLOAD_SIZE="$MAX_UPLOAD_SIZE" \
-         FACE_RECOGNITION_THRESHOLD="$FACE_RECOGNITION_THRESHOLD" \
-         AI_ANALYSIS_TIMEOUT="$AI_ANALYSIS_TIMEOUT" \
-         node server.js
+    # In HA mode, we need to be more careful with the execution
+    cd /app || exit 1
+    exec node server.js
+else
 else
     # Ensure the node user owns the app directory
     chown -R node:node /app 2>/dev/null || true

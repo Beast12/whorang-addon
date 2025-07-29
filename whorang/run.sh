@@ -4,8 +4,14 @@
 # Main entry point for the Home Assistant add-on
 # ==============================================================================
 
-# Add bashio to path if available
-export PATH="/usr/bin:$PATH"
+# Source bashio library if available
+if [ -f "/usr/lib/bashio/bashio.sh" ]; then
+    # shellcheck source=/usr/lib/bashio/bashio.sh
+    source /usr/lib/bashio/bashio.sh
+elif [ -f "/usr/bin/bashio" ]; then
+    # shellcheck source=/usr/bin/bashio
+    source /usr/bin/bashio
+fi
 
 # Function to log messages (works in both HA and standalone modes)
 log_info() {
@@ -19,38 +25,83 @@ log_info() {
 # Set up logging
 log_info "Starting WhoRang AI Doorbell Add-on..."
 
-# Check if running as Home Assistant add-on
+# Check if running as Home Assistant add-on using multiple detection methods
+WHORANG_ADDON_MODE=false
+
+# Method 1: Check for bashio and supervisor connectivity
 if command -v bashio >/dev/null 2>&1 && bashio::supervisor.ping 2>/dev/null; then
-    log_info "Running as Home Assistant add-on"
-    export WHORANG_ADDON_MODE=true
-    
+    log_info "Running as Home Assistant add-on (detected via bashio)"
+    WHORANG_ADDON_MODE=true
+# Method 2: Check for options.json file
+elif [ -f "/data/options.json" ]; then
+    log_info "Running as Home Assistant add-on (detected via /data/options.json)"
+    WHORANG_ADDON_MODE=true
+# Method 3: Check for supervisor API
+elif [ -n "$SUPERVISOR_TOKEN" ] && curl -s -f -H "Authorization: Bearer $SUPERVISOR_TOKEN" http://supervisor/supervisor/ping >/dev/null 2>&1; then
+    log_info "Running as Home Assistant add-on (detected via supervisor API)"
+    WHORANG_ADDON_MODE=true
+fi
+
+export WHORANG_ADDON_MODE
+
+if [ "$WHORANG_ADDON_MODE" = "true" ]; then
     # Read configuration from add-on options
-    export AI_PROVIDER=$(bashio::config 'ai_provider')
-    export LOG_LEVEL=$(bashio::config 'log_level')
-    export DATABASE_PATH=$(bashio::config 'database_path')
-    export UPLOADS_PATH=$(bashio::config 'uploads_path')
-    export MAX_UPLOAD_SIZE=$(bashio::config 'max_upload_size')
-    export FACE_RECOGNITION_THRESHOLD=$(bashio::config 'face_recognition_threshold')
-    export AI_ANALYSIS_TIMEOUT=$(bashio::config 'ai_analysis_timeout')
-    export WEBSOCKET_ENABLED=$(bashio::config 'websocket_enabled')
-    export CORS_ENABLED=$(bashio::config 'cors_enabled')
-    export PUBLIC_URL=$(bashio::config 'public_url')
-    
-    # Handle CORS origins array
-    CORS_ORIGINS=""
-    for origin in $(bashio::config 'cors_origins'); do
-        if [ -z "$CORS_ORIGINS" ]; then
-            CORS_ORIGINS="$origin"
+    if command -v bashio >/dev/null 2>&1 && bashio::supervisor.ping 2>/dev/null; then
+        # Use bashio if available
+        export AI_PROVIDER=$(bashio::config 'ai_provider')
+        export LOG_LEVEL=$(bashio::config 'log_level')
+        export DATABASE_PATH=$(bashio::config 'database_path')
+        export UPLOADS_PATH=$(bashio::config 'uploads_path')
+        export MAX_UPLOAD_SIZE=$(bashio::config 'max_upload_size')
+        export FACE_RECOGNITION_THRESHOLD=$(bashio::config 'face_recognition_threshold')
+        export AI_ANALYSIS_TIMEOUT=$(bashio::config 'ai_analysis_timeout')
+        export WEBSOCKET_ENABLED=$(bashio::config 'websocket_enabled')
+        export CORS_ENABLED=$(bashio::config 'cors_enabled')
+        export PUBLIC_URL=$(bashio::config 'public_url')
+        
+        # Handle CORS origins array
+        CORS_ORIGINS=""
+        for origin in $(bashio::config 'cors_origins'); do
+            if [ -z "$CORS_ORIGINS" ]; then
+                CORS_ORIGINS="$origin"
+            else
+                CORS_ORIGINS="$CORS_ORIGINS,$origin"
+            fi
+        done
+        export CORS_ORIGINS
+    else
+        # Fallback to reading options.json directly
+        log_info "Reading configuration from /data/options.json"
+        export AI_PROVIDER=$(jq -r '.ai_provider // "local"' /data/options.json 2>/dev/null || echo "local")
+        export LOG_LEVEL=$(jq -r '.log_level // "info"' /data/options.json 2>/dev/null || echo "info")
+        export DATABASE_PATH=$(jq -r '.database_path // "/data/whorang.db"' /data/options.json 2>/dev/null || echo "/data/whorang.db")
+        export UPLOADS_PATH=$(jq -r '.uploads_path // "/data/uploads"' /data/options.json 2>/dev/null || echo "/data/uploads")
+        export MAX_UPLOAD_SIZE=$(jq -r '.max_upload_size // "10"' /data/options.json 2>/dev/null || echo "10")
+        export FACE_RECOGNITION_THRESHOLD=$(jq -r '.face_recognition_threshold // 0.8' /data/options.json 2>/dev/null || echo "0.8")
+        export AI_ANALYSIS_TIMEOUT=$(jq -r '.ai_analysis_timeout // 30' /data/options.json 2>/dev/null || echo "30")
+        export WEBSOCKET_ENABLED=$(jq -r '.websocket_enabled // true' /data/options.json 2>/dev/null || echo "true")
+        export CORS_ENABLED=$(jq -r '.cors_enabled // true' /data/options.json 2>/dev/null || echo "true")
+        export PUBLIC_URL=$(jq -r '.public_url // ""' /data/options.json 2>/dev/null || echo "")
+        
+        # Handle CORS origins array
+        CORS_ORIGINS=""
+        if jq -e '.cors_origins | type == "array"' /data/options.json >/dev/null 2>&1; then
+            for origin in $(jq -r '.cors_origins[]' /data/options.json 2>/dev/null); do
+                if [ -z "$CORS_ORIGINS" ]; then
+                    CORS_ORIGINS="$origin"
+                else
+                    CORS_ORIGINS="$CORS_ORIGINS,$origin"
+                fi
+            done
         else
-            CORS_ORIGINS="$CORS_ORIGINS,$origin"
+            CORS_ORIGINS="*"
         fi
-    done
-    export CORS_ORIGINS
+        export CORS_ORIGINS
+    fi
     
     log_info "Configuration loaded from Home Assistant add-on options"
 else
     log_info "Running as standalone Docker container"
-    export WHORANG_ADDON_MODE=false
     
     # Set default values for standalone mode
     export AI_PROVIDER=${AI_PROVIDER:-local}

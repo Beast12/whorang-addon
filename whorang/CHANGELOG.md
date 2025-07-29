@@ -2,6 +2,19 @@
 
 All notable changes to this add-on will be documented in this file.
 
+## [2.0.16] - 2025-07-29
+
+### Fixed
+- **Configuration Propagation**: Resolved issues with Home Assistant addon configuration not being properly passed to the Node.js backend
+- **Native Module Permissions**: Fixed permission errors preventing native modules (sharp, canvas, better-sqlite3) from loading in Home Assistant OS
+- **Environment Variable Propagation**: Ensured all Home Assistant configuration values are properly passed from run.sh to the Node.js backend
+- **Nginx Compliance**: Ensured nginx runs without permission errors and all logs are directed to stdout/stderr as required by Home Assistant
+
+### Changed
+- Enhanced add-on mode detection with multiple fallback methods for better reliability
+- Improved native module permission handling for Home Assistant OS compatibility
+- Updated startup scripts to properly propagate environment variables
+
 ## [2.0.8] - 2025-01-24
 
 ### Fixed

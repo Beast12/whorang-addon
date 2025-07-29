@@ -3,7 +3,7 @@ ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.20
 FROM node:22-alpine AS builder
 
 # Build arguments
-ARG BUILD_VERSION=2.0.11
+ARG BUILD_VERSION=2.0.16
 ARG BUILD_ARCH=amd64
 
 WORKDIR /app
@@ -39,7 +39,7 @@ ARG BUILD_ARCH
 
 WORKDIR /app
 
-# Install Node.js, nginx, sqlite, curl, su-exec and other runtime dependencies
+# Install Node.js, nginx, sqlite, curl, jq and other runtime dependencies
 # Also install build dependencies to rebuild native modules for the target architecture
 RUN apk add --no-cache \
     nodejs \
@@ -48,7 +48,7 @@ RUN apk add --no-cache \
     sqlite \
     curl \
     gettext \
-    su-exec \
+    jq \
     cairo \
     jpeg \
     pango \
@@ -91,6 +91,9 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # Rebuild native modules for the target architecture
 RUN npm rebuild better-sqlite3 canvas
+
+# Install bashio for Home Assistant add-on functionality
+RUN apk add --no-cache bashio
 
 # Copy source code
 COPY . .
@@ -142,19 +145,20 @@ RUN mkdir -p /app/ssl && \
     echo "[system_default_sect]" >> /app/ssl/openssl.cnf
 
 # Set ownership for nginx directories AFTER user creation
+# Use more conservative permissions for HA OS compatibility
 RUN chown -R nobody:nobody /tmp/nginx-* \
     /var/lib/nginx \
     /var/cache/nginx \
-    /run/nginx && \
+    /run/nginx 2>/dev/null || true && \
     # Make directories group-writable to prevent chown errors
-    chmod -R 775 /tmp/nginx-* \
+    chmod -R 755 /tmp/nginx-* \
     /var/lib/nginx \
     /var/cache/nginx \
-    /run/nginx
+    /run/nginx 2>/dev/null || true
 
 # Set ownership of the app directory
-RUN chown -R node:node /app
-RUN chmod -R 755 /app
+RUN chown -R node:node /app 2>/dev/null || true
+RUN chmod -R 755 /app 2>/dev/null || true
 
 # Make app directory and node_modules more permissive for HA OS
 RUN chmod -R 755 /app/node_modules 2>/dev/null || true
