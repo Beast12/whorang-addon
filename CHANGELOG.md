@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.16] - 2025-07-29
+
+### Fixed
+- **Configuration Propagation**: Resolved issues with Home Assistant addon configuration not being properly passed to the Node.js backend
+- **Native Module Permissions**: Fixed permission errors preventing native modules (sharp, canvas, better-sqlite3) from loading in Home Assistant OS
+- **Nginx Compliance**: Ensured nginx runs without permission errors and all logs are directed to stdout/stderr as required by Home Assistant
+- **Docker Image Publishing**: Fixed multi-arch image building and publishing to ensure compatibility with all Home Assistant architectures
+
+### Changed
+- **Version**: Bumped to v2.0.16 to reflect all fixes and improvements
+
 ## [2.0.15] - 2025-07-28
 
 ### Fixed
