@@ -1,6 +1,6 @@
 {
   "name": "whorang-backend",
-  "version": "2.0.17",
+  "version": "2.0.18",
   "description": "WhoRang - AI-Powered Doorbell Intelligence Backend API",
   "main": "server.js",
   "scripts": {

@@ -2,6 +2,15 @@
 
 All notable changes to this add-on will be documented in this file.
 
+## [2.0.18] - 2025-07-29
+
+### Fixed
+- **CI Test Compatibility**: Fixed bashio sourcing issues in run.sh for CI test environments where bashio is not available or has syntax errors
+- **Error Handling**: Improved error handling and fallback logic for bashio library loading
+
+### Changed
+- **Version**: Bumped to v2.0.18 to reflect CI test compatibility fixes
+
 ## [2.0.17] - 2025-07-29
 
 ### Fixed
