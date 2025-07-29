@@ -5,17 +5,24 @@
 # ==============================================================================
 
 # Source bashio library if available
+# Note: In test environments, bashio may not be available or may have syntax errors
+# We handle this gracefully with fallbacks
+BASHIO_AVAILABLE=false
 if [ -f "/usr/lib/bashio/bashio.sh" ]; then
     # shellcheck source=/usr/lib/bashio/bashio.sh
-    source /usr/lib/bashio/bashio.sh
+    if source /usr/lib/bashio/bashio.sh 2>/dev/null; then
+        BASHIO_AVAILABLE=true
+    fi
 elif [ -f "/usr/bin/bashio" ]; then
     # shellcheck source=/usr/bin/bashio
-    source /usr/bin/bashio
+    if source /usr/bin/bashio 2>/dev/null; then
+        BASHIO_AVAILABLE=true
+    fi
 fi
 
 # Function to log messages (works in both HA and standalone modes)
 log_info() {
-    if command -v bashio >/dev/null 2>&1 && bashio::supervisor.ping 2>/dev/null; then
+    if [ "$BASHIO_AVAILABLE" = "true" ] && command -v bashio >/dev/null 2>&1 && bashio::supervisor.ping 2>/dev/null; then
         bashio::log.info "$1"
     else
         echo "[INFO] $1"
@@ -46,7 +53,7 @@ export WHORANG_ADDON_MODE
 
 if [ "$WHORANG_ADDON_MODE" = "true" ]; then
     # Read configuration from add-on options
-    if command -v bashio >/dev/null 2>&1 && bashio::supervisor.ping 2>/dev/null; then
+    if [ "$BASHIO_AVAILABLE" = "true" ] && command -v bashio >/dev/null 2>&1 && bashio::supervisor.ping 2>/dev/null; then
         # Use bashio if available
         export AI_PROVIDER=$(bashio::config 'ai_provider')
         export LOG_LEVEL=$(bashio::config 'log_level')

@@ -350,7 +350,6 @@ if [ "$WHORANG_ADDON_MODE" = "true" ]; then
     cd /app || exit 1
     exec node server.js
 else
-else
     # Ensure the node user owns the app directory
     chown -R node:node /app 2>/dev/null || true
     
