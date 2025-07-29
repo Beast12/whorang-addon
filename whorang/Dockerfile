@@ -92,9 +92,6 @@ COPY --from=builder /app/node_modules ./node_modules
 # Rebuild native modules for the target architecture
 RUN npm rebuild better-sqlite3 canvas
 
-# Install bashio for Home Assistant add-on functionality
-RUN apk add --no-cache bashio
-
 # Copy source code
 COPY . .
 

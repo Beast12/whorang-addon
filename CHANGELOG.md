@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.17] - 2025-07-29
+
+### Fixed
+- **Docker Build**: Removed invalid 'apk add --no-cache bashio' command that was causing build failures
+- **Base Image Compatibility**: Ensured proper compatibility with Home Assistant base images that already include bashio
+
+### Changed
+- **Version**: Bumped to v2.0.17 to reflect Docker build fix
+
 ## [2.0.16] - 2025-07-29
 
 ### Fixed

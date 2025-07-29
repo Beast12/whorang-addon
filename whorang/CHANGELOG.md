@@ -2,6 +2,15 @@
 
 All notable changes to this add-on will be documented in this file.
 
+## [2.0.17] - 2025-07-29
+
+### Fixed
+- **Docker Build**: Removed invalid 'apk add --no-cache bashio' command that was causing build failures
+- **Base Image Compatibility**: Ensured proper compatibility with Home Assistant base images that already include bashio
+
+### Changed
+- **Version**: Bumped to v2.0.17 to reflect Docker build fix
+
 ## [2.0.16] - 2025-07-29
 
 ### Fixed
