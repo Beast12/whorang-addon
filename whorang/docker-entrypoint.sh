@@ -11,14 +11,25 @@ echo "🔧 Loading configuration..."
 date +"[%T] Reading configuration from multiple sources"
 
 # Check if running as Home Assistant add-on
-if [ -f "/data/options.json" ]; then
-    echo "✅ Running as Home Assistant add-on"
-    echo "📖 Configuration will be read from /data/options.json"
-    export WHORANG_ADDON_MODE=true
+# Respect the WHORANG_ADDON_MODE environment variable if already set (from run.sh)
+if [ -z "$WHORANG_ADDON_MODE" ]; then
+    if [ -f "/data/options.json" ]; then
+        echo "✅ Running as Home Assistant add-on"
+        echo "📖 Configuration will be read from /data/options.json"
+        export WHORANG_ADDON_MODE=true
+    else
+        echo "ℹ️  Running as standalone Docker container"
+        echo "📖 Configuration will be read from environment variables"
+        export WHORANG_ADDON_MODE=false
+    fi
 else
-    echo "ℹ️  Running as standalone Docker container"
-    echo "📖 Configuration will be read from environment variables"
-    export WHORANG_ADDON_MODE=false
+    if [ "$WHORANG_ADDON_MODE" = "true" ]; then
+        echo "✅ Running as Home Assistant add-on (mode set by environment)"
+        echo "📖 Configuration will be read from environment variables set by run.sh"
+    else
+        echo "ℹ️  Running as standalone Docker container (mode set by environment)"
+        echo "📖 Configuration will be read from environment variables"
+    fi
 fi
 
 # Set up nginx directories based on deployment mode
@@ -304,8 +315,35 @@ if [ "$WHORANG_ADDON_MODE" = "true" ]; then
     echo "ℹ️  Running in Home Assistant add-on mode - starting Node.js directly"
     # Ensure we have proper permissions on the app directory
     chmod -R 755 /app 2>/dev/null || true
+    
+    # Ensure node_modules has proper permissions for native modules in HA mode
+    find /app/node_modules -type d -exec chmod 755 {} \; 2>/dev/null || true
+    find /app/node_modules -type f -exec chmod 644 {} \; 2>/dev/null || true
+    find /app/node_modules -name "*.node" -exec chmod 755 {} \; 2>/dev/null || true
+    
+    # Log current environment for debugging
+    echo "🔧 Environment variables for Node.js:"
+    echo "  WHORANG_ADDON_MODE: $WHORANG_ADDON_MODE"
+    echo "  DATABASE_PATH: $DATABASE_PATH"
+    echo "  UPLOADS_PATH: $UPLOADS_PATH"
+    echo "  AI_PROVIDER: $AI_PROVIDER"
+    echo "  LOG_LEVEL: $LOG_LEVEL"
+    
     # Start Node.js directly without switching users
-    exec node server.js
+    # Ensure all environment variables are passed
+    exec env WHORANG_ADDON_MODE="$WHORANG_ADDON_MODE" \
+         DATABASE_PATH="$DATABASE_PATH" \
+         UPLOADS_PATH="$UPLOADS_PATH" \
+         AI_PROVIDER="$AI_PROVIDER" \
+         LOG_LEVEL="$LOG_LEVEL" \
+         WEBSOCKET_ENABLED="$WEBSOCKET_ENABLED" \
+         CORS_ENABLED="$CORS_ENABLED" \
+         CORS_ORIGINS="$CORS_ORIGINS" \
+         PUBLIC_URL="$PUBLIC_URL" \
+         MAX_UPLOAD_SIZE="$MAX_UPLOAD_SIZE" \
+         FACE_RECOGNITION_THRESHOLD="$FACE_RECOGNITION_THRESHOLD" \
+         AI_ANALYSIS_TIMEOUT="$AI_ANALYSIS_TIMEOUT" \
+         node server.js
 else
     # Ensure the node user owns the app directory
     chown -R node:node /app 2>/dev/null || true

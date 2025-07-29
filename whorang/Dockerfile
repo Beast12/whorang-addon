@@ -156,6 +156,19 @@ RUN chown -R nobody:nobody /tmp/nginx-* \
 RUN chown -R node:node /app
 RUN chmod -R 755 /app
 
+# Make app directory and node_modules more permissive for HA OS
+RUN chmod -R 755 /app/node_modules 2>/dev/null || true
+
+# Ensure node_modules has proper permissions for native modules
+RUN find /app/node_modules -type d -exec chmod 755 {} \; 2>/dev/null || true
+RUN find /app/node_modules -type f -exec chmod 644 {} \; 2>/dev/null || true
+RUN find /app/node_modules -name "*.node" -exec chmod 755 {} \; 2>/dev/null || true
+
+# Additional permissions for native modules in Home Assistant OS
+RUN find /app/node_modules -name "*.node" -exec chown node:node {} \; 2>/dev/null || true
+RUN find /app/node_modules -path "*/build/Release/*.node" -exec chmod 755 {} \; 2>/dev/null || true
+RUN find /app/node_modules -path "*/build/Release/*.node" -exec chown node:node {} \; 2>/dev/null || true
+
 # Try to set ownership of /data directory (may fail in some HA configurations, that's OK)
 RUN chown -R node:node /data 2>/dev/null || echo "Warning: Could not set ownership of /data directory"
 

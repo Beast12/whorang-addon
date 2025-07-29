@@ -77,6 +77,13 @@ log_info "  - AI Provider: ${AI_PROVIDER:-local}"
 log_info "  - Log Level: ${LOG_LEVEL:-info}"
 log_info "  - Database Path: ${DATABASE_PATH:-/data/whorang.db}"
 log_info "  - Uploads Path: ${UPLOADS_PATH:-/data/uploads}"
+log_info "  - Max Upload Size: ${MAX_UPLOAD_SIZE:-10MB}"
+log_info "  - Face Recognition Threshold: ${FACE_RECOGNITION_THRESHOLD:-0.6}"
+log_info "  - AI Analysis Timeout: ${AI_ANALYSIS_TIMEOUT:-30}"
+log_info "  - WebSocket Enabled: ${WEBSOCKET_ENABLED:-true}"
+log_info "  - CORS Enabled: ${CORS_ENABLED:-true}"
+log_info "  - CORS Origins: ${CORS_ORIGINS:-*}"
+log_info "  - Public URL: ${PUBLIC_URL:-}"
 
 # Execute the main startup script
 log_info "Executing main startup script..."
