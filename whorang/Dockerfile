@@ -42,6 +42,7 @@ WORKDIR /app
 # Install Node.js, nginx, sqlite, curl, jq and other runtime dependencies
 # Also install build dependencies to rebuild native modules for the target architecture
 RUN apk add --no-cache \
+    bash \
     nodejs \
     npm \
     nginx \

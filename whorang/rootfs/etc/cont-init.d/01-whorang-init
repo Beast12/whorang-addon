@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # ==============================================================================
 # WhoRang AI Doorbell Add-on
 # s6-overlay container initialization script
