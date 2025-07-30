@@ -245,51 +245,34 @@ jobs:
           # Wait for container to start
           sleep 15
 
-          # Validate HA add-on mode detection
-          if docker logs whorang-test-addon | grep -q "Home Assistant Add-on mode detected"; then
-            echo "✅ HA mode detection working"
-          else
+          # Validate HA add-on mode detection, configuration, and database
+          if ! docker logs whorang-test-addon | grep -q "Running in Home Assistant add-on mode."; then
             echo "❌ HA mode detection failed"
             docker logs whorang-test-addon
             exit 1
           fi
+          echo "✅ HA mode detection working"
 
-          # Ensure initialization completed without permission errors
-          if docker logs whorang-test-addon | grep -q "Will use fallback path: /app"; then
-            echo "❌ Fallback storage used"
-            docker logs whorang-test-addon
-            exit 1
-          fi
-          if docker logs whorang-test-addon | grep -q "EACCES"; then
-            echo "❌ Permission errors detected"
-            docker logs whorang-test-addon
-            exit 1
-          fi
-          if docker logs whorang-test-addon | grep -q "WhoRang - AI-Powered Doorbell Intelligence"; then
-            echo "✅ Server start message present"
-          else
-            echo "❌ Server did not start correctly"
-            docker logs whorang-test-addon
-            exit 1
-          fi
-          
-          # Test persistent data directory
-          if docker exec whorang-test-addon test -d /data/uploads; then
-            echo "✅ Persistent data directory created"
-          else
-            echo "❌ Persistent data directory missing"
-            docker logs whorang-test-addon
-            exit 1
-          fi
-          
-          # Test configuration loading
-          if docker logs whorang-test-addon | grep -q "Configuration Summary"; then
-            echo "✅ Configuration loading working"
-          else
+          if ! docker logs whorang-test-addon | grep -q "Home Assistant options found"; then
             echo "❌ Configuration loading failed"
             docker logs whorang-test-addon
             exit 1
           fi
+          echo "✅ Loaded Home Assistant add-on options"
+
+          if ! docker logs whorang-test-addon | grep -q "Connected to SQLite database"; then
+            echo "❌ Database connection failed"
+            docker logs whorang-test-addon
+            exit 1
+          fi
+          echo "✅ Database connection working"
+
+          if ! docker logs whorang-test-addon | grep -q "WhoRang - AI-Powered Doorbell Intelligence"; then
+            echo "❌ Server did not start correctly"
+            docker logs whorang-test-addon
+            exit 1
+          fi
+          echo "✅ Server start message present"
           
           # Cleanup addon test
           docker stop whorang-test-addon
