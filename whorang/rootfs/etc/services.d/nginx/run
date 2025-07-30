@@ -49,4 +49,4 @@ if ! nginx -t; then
 fi
 
 # Start nginx in foreground mode
-exec nginx -g "error_log /dev/stderr info; daemon off; master_process off; worker_processes 1;"
+exec nginx -g "error_log /dev/stderr info; daemon off; master_process off;"

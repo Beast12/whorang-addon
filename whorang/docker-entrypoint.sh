@@ -274,7 +274,7 @@ date +"[%T] Starting nginx daemon"
 # In HA mode, we need to be more careful with nginx startup
 if [ "$WHORANG_ADDON_MODE" = "true" ]; then
     # For HA add-on mode, use a more conservative approach
-    nginx -g "error_log /dev/stderr info; access_log /dev/stdout; daemon off; master_process off; worker_processes 1;" &
+    nginx -g "error_log /dev/stderr info; access_log /dev/stdout; daemon off; master_process off;" &
 else
     nginx -g "error_log /dev/stdout debug; master_process off;" &
 fi
