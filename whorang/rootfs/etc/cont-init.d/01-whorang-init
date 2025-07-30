@@ -7,15 +7,23 @@
 # This script runs once when the container starts, before any services.
 # It is responsible for setting up the environment for all s6 services.
 
-# Source bashio library if it exists for robust HA integration
+# Safely attempt to source bashio, but do not fail if it's unavailable.
+# This ensures compatibility with both HA and standalone Docker environments.
+BASHIO_IS_AVAILABLE=false
 if [ -f "/usr/lib/bashio/bashio.sh" ]; then
+    # Redirect errors to /dev/null to prevent script failure if bashio's
+    # own dependencies (like /const.sh) are missing.
     # shellcheck source=/usr/lib/bashio/bashio.sh
-    source /usr/lib/bashio/bashio.sh
+    source /usr/lib/bashio/bashio.sh 2>/dev/null
+    # After attempting to source, verify that the bashio command is actually available.
+    if command -v bashio >/dev/null 2>&1; then
+        BASHIO_IS_AVAILABLE=true
+    fi
 fi
 
-# Function to log messages, using bashio if available
+# Function to log messages, using bashio if it was successfully sourced.
 log_info() {
-    if command -v bashio &>/dev/null && bashio::supervisor.ping &>/dev/null; then
+    if ${BASHIO_IS_AVAILABLE} && bashio::supervisor.ping >/dev/null 2>&1; then
         bashio::log.info "$1"
     else
         echo "[Init] $1"
@@ -38,23 +46,34 @@ fi
 echo "${WHORANG_ADDON_MODE}" > /var/run/s6/container_environment/WHORANG_ADDON_MODE
 
 # Load configuration based on mode
-if ${WHORANG_ADDON_MODE}; then
-    log_info "Loading configuration from add-on options..."
-    # Use bashio to read config, with jq as a fallback
-    AI_PROVIDER=$(bashio::config 'ai_provider' || jq -r '.ai_provider // "local"' /data/options.json)
-    LOG_LEVEL=$(bashio::config 'log_level' || jq -r '.log_level // "info"' /data/options.json)
-    DATABASE_PATH=$(bashio::config 'database_path' || jq -r '.database_path // "/data/whorang.db"' /data/options.json)
-    UPLOADS_PATH=$(bashio::config 'uploads_path' || jq -r '.uploads_path // "/data/uploads"' /data/options.json)
-    MAX_UPLOAD_SIZE=$(bashio::config 'max_upload_size' || jq -r '.max_upload_size // 10' /data/options.json)
-    FACE_RECOGNITION_THRESHOLD=$(bashio::config 'face_recognition_threshold' || jq -r '.face_recognition_threshold // 0.8' /data/options.json)
-    AI_ANALYSIS_TIMEOUT=$(bashio::config 'ai_analysis_timeout' || jq -r '.ai_analysis_timeout // 30' /data/options.json)
-    WEBSOCKET_ENABLED=$(bashio::config 'websocket_enabled' || jq -r '.websocket_enabled // true' /data/options.json)
-    CORS_ENABLED=$(bashio::config 'cors_enabled' || jq -r '.cors_enabled // true' /data/options.json)
-    PUBLIC_URL=$(bashio::config 'public_url' || jq -r '.public_url // ""' /data/options.json)
-    CORS_ORIGINS=$(bashio::config 'cors_origins' || jq -r '(.cors_origins | join(",")) // "*"' /data/options.json)
+if ${WHORANG_ADDON_MODE} && ${BASHIO_IS_AVAILABLE}; then
+    log_info "Loading configuration from Home Assistant add-on options via bashio..."
+    AI_PROVIDER=$(bashio::config 'ai_provider')
+    LOG_LEVEL=$(bashio::config 'log_level')
+    DATABASE_PATH=$(bashio::config 'database_path')
+    UPLOADS_PATH=$(bashio::config 'uploads_path')
+    MAX_UPLOAD_SIZE=$(bashio::config 'max_upload_size')
+    FACE_RECOGNITION_THRESHOLD=$(bashio::config 'face_recognition_threshold')
+    AI_ANALYSIS_TIMEOUT=$(bashio::config 'ai_analysis_timeout')
+    WEBSOCKET_ENABLED=$(bashio::config 'websocket_enabled')
+    CORS_ENABLED=$(bashio::config 'cors_enabled')
+    PUBLIC_URL=$(bashio::config 'public_url')
+    CORS_ORIGINS=$(bashio::config 'cors_origins' | paste -sd ',' -)
+elif ${WHORANG_ADDON_MODE}; then
+    log_info "Loading configuration from /data/options.json using jq..."
+    AI_PROVIDER=$(jq -r '.ai_provider // "local"' /data/options.json)
+    LOG_LEVEL=$(jq -r '.log_level // "info"' /data/options.json)
+    DATABASE_PATH=$(jq -r '.database_path // "/data/whorang.db"' /data/options.json)
+    UPLOADS_PATH=$(jq -r '.uploads_path // "/data/uploads"' /data/options.json)
+    MAX_UPLOAD_SIZE=$(jq -r '.max_upload_size // 10' /data/options.json)
+    FACE_RECOGNITION_THRESHOLD=$(jq -r '.face_recognition_threshold // 0.8' /data/options.json)
+    AI_ANALYSIS_TIMEOUT=$(jq -r '.ai_analysis_timeout // 30' /data/options.json)
+    WEBSOCKET_ENABLED=$(jq -r '.websocket_enabled // true' /data/options.json)
+    CORS_ENABLED=$(jq -r '.cors_enabled // true' /data/options.json)
+    PUBLIC_URL=$(jq -r '.public_url // ""' /data/options.json)
+    CORS_ORIGINS=$(jq -r '(.cors_origins | join(",")) // "*"' /data/options.json)
 else
     log_info "Loading configuration from environment variables (standalone mode)..."
-    # Use environment variables with defaults for standalone mode
     AI_PROVIDER=${AI_PROVIDER:-local}
     LOG_LEVEL=${LOG_LEVEL:-info}
     DATABASE_PATH=${DATABASE_PATH:-/data/whorang.db}
@@ -90,7 +109,6 @@ echo "3001" > /var/run/s6/container_environment/PORT
 if ! ${WHORANG_ADDON_MODE}; then
     log_info "Applying standalone network configuration for nginx..."
     if [ -f /etc/nginx/conf.d/default.conf ]; then
-        # Replace restrictive HA-specific rule with a general 'allow all'
         sed -i '/allow 172\.30\.32\.2;/c\    allow all;' /etc/nginx/conf.d/default.conf
     fi
 fi
