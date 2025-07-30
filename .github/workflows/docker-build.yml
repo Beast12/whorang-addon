@@ -144,17 +144,11 @@ jobs:
           # Prepare writable data directories
           mkdir -p /tmp/whorang-standalone-data /tmp/whorang-addon-data
           chmod 755 /tmp/whorang-standalone-data /tmp/whorang-addon-data
-          sudo chown root:root /tmp/whorang-standalone-data /tmp/whorang-addon-data
 
           # Create minimal Home Assistant options file for addon mode detection
-          cat > /tmp/whorang-addon-data/options.json <<'EOF'
-          {
-            "ai_provider": "local",
-            "log_level": "info",
-            "database_path": "/data/whorang.db",
-            "uploads_path": "/data/uploads"
-          }
-          EOF
+          echo '{"ai_provider": "local", "log_level": "info", "database_path": "/data/whorang.db", "uploads_path": "/data/uploads"}' > /tmp/whorang-addon-data/options.json
+
+          sudo chown -R nobody:nogroup /tmp/whorang-addon-data
 
           # Test 1: Standalone mode (non-HA environment)
           echo "🔧 Testing standalone mode..."
