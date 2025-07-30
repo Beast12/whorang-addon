@@ -1,0 +1,44 @@
+#!/usr/bin/with-contenv bashio
+
+# Start Node.js application
+bashio::log.info "Starting Node.js application..."
+
+# Set proper environment for Node.js
+export NODE_ENV=production
+export HOME=/app
+export PATH="/usr/local/bin:$PATH"
+
+# Change to the app directory
+cd /app || exit 1
+
+# In Home Assistant OS, run Node.js directly to avoid permission issues
+if [ "$WHORANG_ADDON_MODE" = "true" ]; then
+    bashio::log.info "Running in Home Assistant add-on mode - starting Node.js directly"
+    
+    # Ensure we have proper permissions on the app directory
+    chmod -R 755 /app 2>/dev/null || true
+    
+    # Ensure node_modules has proper permissions for native modules in HA mode
+    find /app/node_modules -type d -exec chmod 755 {} \; 2>/dev/null || true
+    find /app/node_modules -type f -exec chmod 644 {} \; 2>/dev/null || true
+    find /app/node_modules -name "*.node" -exec chmod 755 {} \; 2>/dev/null || true
+    find /app/node_modules -name "*.node" -exec chown node:node {} \; 2>/dev/null || true
+    find /app/node_modules -path "*/build/Release/*.node" -exec chmod 755 {} \; 2>/dev/null || true
+    find /app/node_modules -path "*/build/Release/*.node" -exec chown node:node {} \; 2>/dev/null || true
+    
+    # Start Node.js directly
+    exec node server.js
+else
+    # Ensure the node user owns the app directory
+    chown -R node:node /app 2>/dev/null || true
+    
+    # Start Node.js as the node user
+    if command -v su-exec >/dev/null 2>&1; then
+        exec su-exec node node server.js
+    elif command -v gosu >/dev/null 2>&1; then
+        exec gosu node node server.js
+    else
+        # Fallback - use su if available
+        exec su -s /bin/sh node -c "cd /app && node server.js"
+    fi
+fi
