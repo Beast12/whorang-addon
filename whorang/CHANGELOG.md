@@ -2,25 +2,7 @@
 
 All notable changes to this add-on will be documented in this file.
 
-## [2.0.18] - 2025-07-29
-
-### Fixed
-- **CI Test Compatibility**: Fixed bashio sourcing issues in run.sh for CI test environments where bashio is not available or has syntax errors
-- **Error Handling**: Improved error handling and fallback logic for bashio library loading
-
-### Changed
-- **Version**: Bumped to v2.0.18 to reflect CI test compatibility fixes
-
-## [2.0.17] - 2025-07-29
-
-### Fixed
-- **Docker Build**: Removed invalid 'apk add --no-cache bashio' command that was causing build failures
-- **Base Image Compatibility**: Ensured proper compatibility with Home Assistant base images that already include bashio
-
-### Changed
-- **Version**: Bumped to v2.0.17 to reflect Docker build fix
-
-## [2.0.16] - 2025-07-29
+## [2.0.16] - 2025-07-30
 
 ### Fixed
 - **Configuration Propagation**: Resolved issues with Home Assistant addon configuration not being properly passed to the Node.js backend
