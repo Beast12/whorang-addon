@@ -1,0 +1,20 @@
+#!/usr/bin/with-contenv bash
+# ==============================================================================
+# WhoRang AI Doorbell Add-on
+# Service script to fix data directory permissions
+# ==============================================================================
+
+echo "[fix-attrs] Ensuring correct permissions for /data directory..."
+
+# This service runs before the main application services.
+# It's designed to fix the ownership of the /data directory, which is
+# mounted by the Home Assistant Supervisor.
+
+if [ -d "/data" ]; then
+    # Recursively change ownership to the 'nobody' user and 'nogroup' group.
+    # This is the definitive fix for EACCES permission errors.
+    chown -R nobody:nogroup /data
+    echo "[fix-attrs] Permissions for /data set successfully."
+else
+    echo "[fix-attrs] /data directory not found, skipping permission fix."
+fi
