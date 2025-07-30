@@ -59,13 +59,7 @@ else
     # Ensure the node user owns the app directory
     chown -R node:node /app 2>/dev/null || true
     
-    # Start Node.js as the node user
-    if command -v su-exec >/dev/null 2>&1; then
-        exec su-exec node node server.js
-    elif command -v gosu >/dev/null 2>&1; then
-        exec gosu node node server.js
-    else
-        # Fallback - use su if available
-        exec su -s /bin/sh node -c "cd /app && node server.js"
-    fi
+    # Start Node.js as the node user using the s6-native way
+    log_info "Running in standalone mode - starting Node.js as 'node' user"
+    exec s6-setuidgid node node server.js
 fi
