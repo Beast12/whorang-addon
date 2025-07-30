@@ -179,6 +179,9 @@ LABEL \
     io.hass.type="addon" \
     io.hass.arch="armhf|armv7|aarch64|amd64|i386"
 
+# Copy service definitions for s6 service manager
+COPY rootfs/etc/services.d/ /etc/services.d/
+
 # Expose port 80 (nginx will serve on port 80)
 EXPOSE 80
 

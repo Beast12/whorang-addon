@@ -143,6 +143,42 @@ log_info "  - CORS Enabled: ${CORS_ENABLED:-true}"
 log_info "  - CORS Origins: ${CORS_ORIGINS:-*}"
 log_info "  - Public URL: ${PUBLIC_URL:-}"
 
-# Execute the main startup script
-log_info "Executing main startup script..."
-exec /docker-entrypoint.sh
+# Export all configuration variables so they're available to services
+export WHORANG_ADDON_MODE
+export AI_PROVIDER
+export LOG_LEVEL
+export DATABASE_PATH
+export UPLOADS_PATH
+export MAX_UPLOAD_SIZE
+export FACE_RECOGNITION_THRESHOLD
+export AI_ANALYSIS_TIMEOUT
+export WEBSOCKET_ENABLED
+export CORS_ENABLED
+export CORS_ORIGINS
+export PUBLIC_URL
+
+# In standalone mode, we still need to do some setup that would normally be done by docker-entrypoint.sh
+if [ "$WHORANG_ADDON_MODE" = "false" ]; then
+    log_info "Running in standalone mode - performing additional setup..."
+    
+    # Remove default nginx configurations that might conflict
+    rm -f /etc/nginx/sites-enabled/* 2>/dev/null || true
+    rm -f /etc/nginx/sites-available/* 2>/dev/null || true
+    
+    # Check if running in standalone mode and adjust access control
+    if [ "$WHORANG_ADDON_MODE" = "false" ]; then
+        # Replace restrictive access control with allow all for standalone mode
+        sed -i '/allow 172\.30\.32\.2;/,/# Note: In standalone mode, run\.sh will replace this with/c\
+        # Standalone mode - allow all access\
+        allow all;' /etc/nginx/conf.d/default.conf 2>/dev/null || true
+    fi
+    
+    # Validate nginx configuration
+    if ! nginx -t; then
+        log_info "Nginx configuration test failed"
+        exit 1
+    fi
+fi
+
+log_info "Starting s6 service manager..."
+# The s6 service manager will start our services
