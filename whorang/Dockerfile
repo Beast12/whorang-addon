@@ -107,10 +107,7 @@ COPY backend.conf /etc/nginx/conf.d/default.conf
 COPY icon.png ./icon.png
 COPY logo.png ./logo.png
 
-# Copy and set up scripts
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-COPY run.sh /run.sh
-RUN chmod +x /docker-entrypoint.sh /run.sh
+
 
 # Create nginx directory structure with proper temp directories
 RUN mkdir -p /tmp/nginx-client-body \
@@ -179,11 +176,15 @@ LABEL \
     io.hass.type="addon" \
     io.hass.arch="armhf|armv7|aarch64|amd64|i386"
 
-# Copy service definitions for s6 service manager
+# Copy s6-overlay scripts
+COPY rootfs/etc/cont-init.d/ /etc/cont-init.d/
 COPY rootfs/etc/services.d/ /etc/services.d/
 
-# Expose port 80 (nginx will serve on port 80)
+# Make s6 scripts executable
+RUN chmod +x -R /etc/cont-init.d /etc/services.d
+
+# Expose port 80 for nginx
 EXPOSE 80
 
-# Use run.sh as the main entry point for Home Assistant add-on
-CMD ["/run.sh"]
+# Set entrypoint to the s6-overlay init process
+ENTRYPOINT ["/init"]

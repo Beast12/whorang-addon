@@ -1,0 +1,98 @@
+#!/bin/sh
+# ==============================================================================
+# WhoRang AI Doorbell Add-on
+# s6-overlay container initialization script
+# ==============================================================================
+
+# This script runs once when the container starts, before any services.
+# It is responsible for setting up the environment for all s6 services.
+
+# Source bashio library if it exists for robust HA integration
+if [ -f "/usr/lib/bashio/bashio.sh" ]; then
+    # shellcheck source=/usr/lib/bashio/bashio.sh
+    source /usr/lib/bashio/bashio.sh
+fi
+
+# Function to log messages, using bashio if available
+log_info() {
+    if command -v bashio &>/dev/null && bashio::supervisor.ping &>/dev/null; then
+        bashio::log.info "$1"
+    else
+        echo "[Init] $1"
+    fi
+}
+
+log_info "Starting WhoRang one-time initialization..."
+
+# Create the s6 environment directory if it doesn't exist
+mkdir -p /var/run/s6/container_environment
+
+# Determine run mode (Home Assistant Add-on vs. Standalone)
+WHORANG_ADDON_MODE=false
+if [ -f "/data/options.json" ]; then
+    log_info "Home Assistant Add-on mode detected."
+    WHORANG_ADDON_MODE=true
+else
+    log_info "Standalone mode detected."
+fi
+echo "${WHORANG_ADDON_MODE}" > /var/run/s6/container_environment/WHORANG_ADDON_MODE
+
+# Load configuration based on mode
+if ${WHORANG_ADDON_MODE}; then
+    log_info "Loading configuration from add-on options..."
+    # Use bashio to read config, with jq as a fallback
+    AI_PROVIDER=$(bashio::config 'ai_provider' || jq -r '.ai_provider // "local"' /data/options.json)
+    LOG_LEVEL=$(bashio::config 'log_level' || jq -r '.log_level // "info"' /data/options.json)
+    DATABASE_PATH=$(bashio::config 'database_path' || jq -r '.database_path // "/data/whorang.db"' /data/options.json)
+    UPLOADS_PATH=$(bashio::config 'uploads_path' || jq -r '.uploads_path // "/data/uploads"' /data/options.json)
+    MAX_UPLOAD_SIZE=$(bashio::config 'max_upload_size' || jq -r '.max_upload_size // 10' /data/options.json)
+    FACE_RECOGNITION_THRESHOLD=$(bashio::config 'face_recognition_threshold' || jq -r '.face_recognition_threshold // 0.8' /data/options.json)
+    AI_ANALYSIS_TIMEOUT=$(bashio::config 'ai_analysis_timeout' || jq -r '.ai_analysis_timeout // 30' /data/options.json)
+    WEBSOCKET_ENABLED=$(bashio::config 'websocket_enabled' || jq -r '.websocket_enabled // true' /data/options.json)
+    CORS_ENABLED=$(bashio::config 'cors_enabled' || jq -r '.cors_enabled // true' /data/options.json)
+    PUBLIC_URL=$(bashio::config 'public_url' || jq -r '.public_url // ""' /data/options.json)
+    CORS_ORIGINS=$(bashio::config 'cors_origins' || jq -r '(.cors_origins | join(",")) // "*"' /data/options.json)
+else
+    log_info "Loading configuration from environment variables (standalone mode)..."
+    # Use environment variables with defaults for standalone mode
+    AI_PROVIDER=${AI_PROVIDER:-local}
+    LOG_LEVEL=${LOG_LEVEL:-info}
+    DATABASE_PATH=${DATABASE_PATH:-/data/whorang.db}
+    UPLOADS_PATH=${UPLOADS_PATH:-/data/uploads}
+    MAX_UPLOAD_SIZE=${MAX_UPLOAD_SIZE:-10}
+    FACE_RECOGNITION_THRESHOLD=${FACE_RECOGNITION_THRESHOLD:-0.8}
+    AI_ANALYSIS_TIMEOUT=${AI_ANALYSIS_TIMEOUT:-30}
+    WEBSOCKET_ENABLED=${WEBSOCKET_ENABLED:-true}
+    CORS_ENABLED=${CORS_ENABLED:-true}
+    CORS_ORIGINS=${CORS_ORIGINS:-*}
+    PUBLIC_URL=${PUBLIC_URL:-}
+fi
+
+# Write all variables to the s6 environment directory for services to inherit
+log_info "Exporting configuration for services..."
+echo "${AI_PROVIDER}" > /var/run/s6/container_environment/AI_PROVIDER
+echo "${LOG_LEVEL}" > /var/run/s6/container_environment/LOG_LEVEL
+echo "${DATABASE_PATH}" > /var/run/s6/container_environment/DATABASE_PATH
+echo "${UPLOADS_PATH}" > /var/run/s6/container_environment/UPLOADS_PATH
+echo "${MAX_UPLOAD_SIZE}" > /var/run/s6/container_environment/MAX_UPLOAD_SIZE
+echo "${FACE_RECOGNITION_THRESHOLD}" > /var/run/s6/container_environment/FACE_RECOGNITION_THRESHOLD
+echo "${AI_ANALYSIS_TIMEOUT}" > /var/run/s6/container_environment/AI_ANALYSIS_TIMEOUT
+echo "${WEBSOCKET_ENABLED}" > /var/run/s6/container_environment/WEBSOCKET_ENABLED
+echo "${CORS_ENABLED}" > /var/run/s6/container_environment/CORS_ENABLED
+echo "${PUBLIC_URL}" > /var/run/s6/container_environment/PUBLIC_URL
+echo "${CORS_ORIGINS}" > /var/run/s6/container_environment/CORS_ORIGINS
+
+# Set fixed Node.js environment variables
+echo "production" > /var/run/s6/container_environment/NODE_ENV
+echo "3001" > /var/run/s6/container_environment/PORT
+
+# Standalone mode requires adjusting nginx config for external access
+if ! ${WHORANG_ADDON_MODE}; then
+    log_info "Applying standalone network configuration for nginx..."
+    if [ -f /etc/nginx/conf.d/default.conf ]; then
+        # Replace restrictive HA-specific rule with a general 'allow all'
+        sed -i '/allow 172\.30\.32\.2;/c\    allow all;' /etc/nginx/conf.d/default.conf
+    fi
+fi
+
+log_info "WhoRang initialization complete."
