@@ -8,6 +8,7 @@ echo "Creating test environment..."
 
 # Create test directories
 mkdir -p /tmp/whorang-test/data
+chmod 777 /tmp/whorang-test/data # Ensure the container can write to the data volume
 mkdir -p /tmp/whorang-test/config
 
 # Create a mock options.json with custom paths
