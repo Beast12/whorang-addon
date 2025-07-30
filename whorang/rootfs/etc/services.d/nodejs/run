@@ -37,11 +37,11 @@ if [ "${WHORANG_ADDON_MODE}" = "true" ]; then
     log_info "Running in Home Assistant add-on mode."
     # In HA mode, permissions are managed by the OS, so we run as the default user.
     # The init script has already set necessary permissions.
-    exec node src/server.js
+    exec node server.js
 else
     log_info "Running in standalone mode."
     # In standalone mode, we ensure the 'node' user owns the files and run the process as that user.
     chown -R node:node /app 2>/dev/null || true
-    exec s6-setuidgid node node src/server.js
+    exec s6-setuidgid node node server.js
 fi
 
