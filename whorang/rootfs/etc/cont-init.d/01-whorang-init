@@ -64,8 +64,8 @@ if [ "${WHORANG_ADDON_MODE}" = "true" ]; then
             value=$(bashio::config "$key")
         fi
 
-        # If bashio didn't provide a value, fall back to reading from options.json
-        if [[ -z "$value" ]] && [[ -f "/data/options.json" ]]; then
+        # If bashio returns an empty string or the literal string "null", fall back to options.json
+        if { [[ -z "$value" ]] || [[ "$value" == "null" ]]; } && [[ -f "/data/options.json" ]]; then
             log_info "Falling back to /data/options.json for '$key'"
             jq_value=$(jq -r ".${key}" /data/options.json)
             if [[ "$jq_value" != "null" ]]; then
