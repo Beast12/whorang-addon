@@ -266,100 +266,12 @@ fi
 echo "✅ Nginx configuration is valid and Home Assistant compliant"
 echo "✅ All logs properly configured for stdout/stderr output"
 
-# Start nginx
-echo "🌐 Starting nginx..."
-date +"[%T] Starting nginx daemon"
-# Start nginx with explicit error log and no default log file creation
-# Use master_process off to prevent worker processes from trying to change user/group
-# In HA mode, we need to be more careful with nginx startup
-if [ "$WHORANG_ADDON_MODE" = "true" ]; then
-    # For HA add-on mode, use a more conservative approach
-    nginx -g "error_log /dev/stderr info; access_log /dev/stdout; daemon off; master_process off;" &
-else
-    nginx -g "error_log /dev/stdout debug; master_process off;" &
-fi
-
-# Wait for nginx to start and verify
-sleep 2
-
-# Check if nginx is actually running by looking for processes
-if pgrep nginx > /dev/null; then
-    echo "✅ Nginx started successfully"
-    echo "📊 Nginx is serving on port 80"
-    echo "🔗 Health check available at /health"
-    
-    # Get the master process PID for reference
-    NGINX_MASTER_PID=$(pgrep -f "nginx: master process" | head -1)
-    echo "📋 Nginx master process PID: $NGINX_MASTER_PID"
-else
-    echo "❌ Failed to start nginx"
-    echo "📋 Checking for nginx processes:"
-    ps aux | grep nginx || echo "No nginx processes found"
-    exit 1
-fi
-
-date +"[%T] Nginx ready"
-
 # Final configuration summary
 echo "📋 Configuration Summary:"
 echo "  - Add-on mode: $WHORANG_ADDON_MODE"
 echo "  - Data writable: $DATA_WRITABLE"
-echo "  - Nginx: Running on port 80"
-echo "  - Backend: Will start on port 3001"
+echo "  - Nginx: Will be started by s6"
+echo "  - Backend: Will be started by s6"
 echo "  - Integration: Ready for Home Assistant discovery"
 
-# Start the Node.js application
-echo "🚀 Starting Node.js application..."
-date +"[%T] Starting Node.js backend"
-
-# Set proper environment for Node.js
-export NODE_ENV=production
-export HOME=/app
-export PATH="/usr/local/bin:$PATH"
-
-cd /app
-
-# In Home Assistant OS, run Node.js directly to avoid permission issues
-if [ "$WHORANG_ADDON_MODE" = "true" ]; then
-    echo "ℹ️  Running in Home Assistant add-on mode - starting Node.js directly"
-    # Ensure we have proper permissions on the app directory
-    chmod -R 755 /app 2>/dev/null || true
-    
-    # Ensure node_modules has proper permissions for native modules in HA mode
-    # In HA OS, we need to be more careful with permissions
-    find /app/node_modules -type d -exec chmod 755 {} \; 2>/dev/null || true
-    find /app/node_modules -type f -exec chmod 644 {} \; 2>/dev/null || true
-    find /app/node_modules -name "*.node" -exec chmod 755 {} \; 2>/dev/null || true
-    
-    # Additional permissions for native modules in Home Assistant OS
-    find /app/node_modules -name "*.node" -exec chown node:node {} \; 2>/dev/null || true
-    find /app/node_modules -path "*/build/Release/*.node" -exec chmod 755 {} \; 2>/dev/null || true
-    find /app/node_modules -path "*/build/Release/*.node" -exec chown node:node {} \; 2>/dev/null || true
-    
-    # Log current environment for debugging
-    echo "🔧 Environment variables for Node.js:"
-    echo "  WHORANG_ADDON_MODE: $WHORANG_ADDON_MODE"
-    echo "  DATABASE_PATH: $DATABASE_PATH"
-    echo "  UPLOADS_PATH: $UPLOADS_PATH"
-    echo "  AI_PROVIDER: $AI_PROVIDER"
-    echo "  LOG_LEVEL: $LOG_LEVEL"
-    
-    # Start Node.js directly without switching users
-    # Ensure all environment variables are passed
-    # In HA mode, we need to be more careful with the execution
-    cd /app || exit 1
-    exec node server.js
-else
-    # Ensure the node user owns the app directory
-    chown -R node:node /app 2>/dev/null || true
-    
-    # Start Node.js as the node user
-    if command -v su-exec >/dev/null 2>&1; then
-        exec su-exec node node server.js
-    elif command -v gosu >/dev/null 2>&1; then
-        exec gosu node node server.js
-    else
-        # Fallback - use su if available
-        exec su -s /bin/sh node -c "cd /app && node server.js"
-    fi
-fi
+date +"[%T] Initialization complete"
