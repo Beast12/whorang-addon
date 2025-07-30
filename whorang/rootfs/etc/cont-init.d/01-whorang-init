@@ -32,6 +32,20 @@ log_info() {
 
 log_info "Starting WhoRang one-time initialization..."
 
+# ==============================================================================
+# Fix Permissions for Home Assistant Data Directory
+# ==============================================================================
+# This is a critical step for Home Assistant compatibility.
+# The /data directory is mounted by Home Assistant, and we must ensure
+# the user running the application has write permissions.
+if [ -d "/data" ]; then
+    log_info "Ensuring correct permissions for /data directory..."
+    # Recursively change ownership to the 'nobody' user and 'nogroup' group.
+    chown -R nobody:nogroup /data
+    log_info "Permissions for /data set successfully."
+fi
+# ==============================================================================
+
 # Create the s6 environment directory if it doesn't exist
 mkdir -p /var/run/s6/container_environment
 
