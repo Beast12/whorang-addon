@@ -1,7 +1,34 @@
-#!/usr/bin/with-contenv bashio
+#!/usr/bin/with-contenv bash
+
+# Try to source bashio, but handle case where it's not available
+BASHIO_AVAILABLE=false
+if [ -f /usr/lib/bashio/bashio.sh ] && [ -f /etc/bashio.const ] 2>/dev/null; then
+    # shellcheck source=/dev/null
+    source /usr/lib/bashio/bashio.sh 2>/dev/null || true
+    if command -v bashio::log.info >/dev/null 2>&1; then
+        BASHIO_AVAILABLE=true
+    fi
+fi
+
+# Function to log messages
+log_info() {
+    if [ "$BASHIO_AVAILABLE" = "true" ]; then
+        bashio::log.info "$1"
+    else
+        echo "[INFO] $1"
+    fi
+}
+
+log_error() {
+    if [ "$BASHIO_AVAILABLE" = "true" ]; then
+        bashio::log.error "$1"
+    else
+        echo "[ERROR] $1" >&2
+    fi
+}
 
 # Start Node.js application
-bashio::log.info "Starting Node.js application..."
+log_info "Starting Node.js application..."
 
 # Set proper environment for Node.js
 export NODE_ENV=production
@@ -13,7 +40,7 @@ cd /app || exit 1
 
 # In Home Assistant OS, run Node.js directly to avoid permission issues
 if [ "$WHORANG_ADDON_MODE" = "true" ]; then
-    bashio::log.info "Running in Home Assistant add-on mode - starting Node.js directly"
+    log_info "Running in Home Assistant add-on mode - starting Node.js directly"
     
     # Ensure we have proper permissions on the app directory
     chmod -R 755 /app 2>/dev/null || true
