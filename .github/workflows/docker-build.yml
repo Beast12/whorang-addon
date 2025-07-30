@@ -152,7 +152,7 @@ jobs:
 
           # Test 1: Standalone mode (non-HA environment)
           echo "🔧 Testing standalone mode..."
-          docker run --init -d --name whorang-test-standalone \
+          docker run -d --name whorang-test-standalone \
             -p 8080:80 \
             -v /tmp/whorang-standalone-data:/data:rw \
             -e WHORANG_ADDON_MODE=false \
@@ -232,7 +232,7 @@ jobs:
           
           # Test 2: Home Assistant add-on mode simulation
           echo "🏠 Testing Home Assistant add-on mode simulation..."
-          docker run --init -d --name whorang-test-addon \
+          docker run -d --name whorang-test-addon \
             -p 8081:80 \
             -e HASSIO_TOKEN=dummy-token \
             -e HASSIO_ADDON=http://127.0.0.1 \
