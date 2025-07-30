@@ -182,4 +182,4 @@ fi
 
 log_info "Starting s6 service manager..."
 # The s6 service manager will start our services
-exec /init
+exec s6-svscan /etc/services.d
