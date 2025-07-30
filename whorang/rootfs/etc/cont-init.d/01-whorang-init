@@ -9,7 +9,7 @@
 
 # Safely attempt to source bashio, but do not fail if it's unavailable.
 # This ensures compatibility with both HA and standalone Docker environments.
-BASHIO_IS_AVAILABLE=false
+BASHIO_IS_AVAILABLE="false"
 if [ -f "/usr/lib/bashio/bashio.sh" ]; then
     # Redirect errors to /dev/null to prevent script failure if bashio's
     # own dependencies (like /const.sh) are missing.
@@ -17,13 +17,13 @@ if [ -f "/usr/lib/bashio/bashio.sh" ]; then
     source /usr/lib/bashio/bashio.sh 2>/dev/null
     # After attempting to source, verify that the bashio command is actually available.
     if command -v bashio >/dev/null 2>&1; then
-        BASHIO_IS_AVAILABLE=true
+        BASHIO_IS_AVAILABLE="true"
     fi
 fi
 
 # Function to log messages, using bashio if it was successfully sourced.
 log_info() {
-    if ${BASHIO_IS_AVAILABLE} && bashio::supervisor.ping >/dev/null 2>&1; then
+    if [ "${BASHIO_IS_AVAILABLE}" = "true" ] && bashio::supervisor.ping >/dev/null 2>&1; then
         bashio::log.info "$1"
     else
         echo "[Init] $1"
@@ -36,17 +36,17 @@ log_info "Starting WhoRang one-time initialization..."
 mkdir -p /var/run/s6/container_environment
 
 # Determine run mode (Home Assistant Add-on vs. Standalone)
-WHORANG_ADDON_MODE=false
+WHORANG_ADDON_MODE="false"
 if [ -f "/data/options.json" ]; then
     log_info "Home Assistant Add-on mode detected."
-    WHORANG_ADDON_MODE=true
+    WHORANG_ADDON_MODE="true"
 else
     log_info "Standalone mode detected."
 fi
 echo "${WHORANG_ADDON_MODE}" > /var/run/s6/container_environment/WHORANG_ADDON_MODE
 
 # Load configuration based on mode
-if ${WHORANG_ADDON_MODE} && ${BASHIO_IS_AVAILABLE}; then
+if [ "${WHORANG_ADDON_MODE}" = "true" ] && [ "${BASHIO_IS_AVAILABLE}" = "true" ]; then
     log_info "Loading configuration from Home Assistant add-on options via bashio..."
     AI_PROVIDER=$(bashio::config 'ai_provider')
     LOG_LEVEL=$(bashio::config 'log_level')
@@ -59,7 +59,7 @@ if ${WHORANG_ADDON_MODE} && ${BASHIO_IS_AVAILABLE}; then
     CORS_ENABLED=$(bashio::config 'cors_enabled')
     PUBLIC_URL=$(bashio::config 'public_url')
     CORS_ORIGINS=$(bashio::config 'cors_origins' | paste -sd ',' -)
-elif ${WHORANG_ADDON_MODE}; then
+elif [ "${WHORANG_ADDON_MODE}" = "true" ]; then
     log_info "Loading configuration from /data/options.json using jq..."
     AI_PROVIDER=$(jq -r '.ai_provider // "local"' /data/options.json)
     LOG_LEVEL=$(jq -r '.log_level // "info"' /data/options.json)
@@ -106,7 +106,7 @@ echo "production" > /var/run/s6/container_environment/NODE_ENV
 echo "3001" > /var/run/s6/container_environment/PORT
 
 # Standalone mode requires adjusting nginx config for external access
-if ! ${WHORANG_ADDON_MODE}; then
+if [ "${WHORANG_ADDON_MODE}" = "false" ]; then
     log_info "Applying standalone network configuration for nginx..."
     if [ -f /etc/nginx/conf.d/default.conf ]; then
         sed -i '/allow 172\.30\.32\.2;/c\    allow all;' /etc/nginx/conf.d/default.conf
