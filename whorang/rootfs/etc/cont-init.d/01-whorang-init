@@ -43,7 +43,7 @@ if [ -f "/data/options.json" ]; then
 else
     log_info "Standalone mode detected."
 fi
-echo "${WHORANG_ADDON_MODE}" > /var/run/s6/container_environment/WHORANG_ADDON_MODE
+printf "%s" "${WHORANG_ADDON_MODE}" > /var/run/s6/container_environment/WHORANG_ADDON_MODE
 
 # Load configuration based on mode
 if [ "${WHORANG_ADDON_MODE}" = "true" ] && [ "${BASHIO_IS_AVAILABLE}" = "true" ]; then
@@ -89,21 +89,21 @@ fi
 
 # Write all variables to the s6 environment directory for services to inherit
 log_info "Exporting configuration for services..."
-echo "${AI_PROVIDER}" > /var/run/s6/container_environment/AI_PROVIDER
-echo "${LOG_LEVEL}" > /var/run/s6/container_environment/LOG_LEVEL
-echo "${DATABASE_PATH}" > /var/run/s6/container_environment/DATABASE_PATH
-echo "${UPLOADS_PATH}" > /var/run/s6/container_environment/UPLOADS_PATH
-echo "${MAX_UPLOAD_SIZE}" > /var/run/s6/container_environment/MAX_UPLOAD_SIZE
-echo "${FACE_RECOGNITION_THRESHOLD}" > /var/run/s6/container_environment/FACE_RECOGNITION_THRESHOLD
-echo "${AI_ANALYSIS_TIMEOUT}" > /var/run/s6/container_environment/AI_ANALYSIS_TIMEOUT
-echo "${WEBSOCKET_ENABLED}" > /var/run/s6/container_environment/WEBSOCKET_ENABLED
-echo "${CORS_ENABLED}" > /var/run/s6/container_environment/CORS_ENABLED
-echo "${PUBLIC_URL}" > /var/run/s6/container_environment/PUBLIC_URL
-echo "${CORS_ORIGINS}" > /var/run/s6/container_environment/CORS_ORIGINS
+printf "%s" "${AI_PROVIDER}" > /var/run/s6/container_environment/AI_PROVIDER
+printf "%s" "${LOG_LEVEL}" > /var/run/s6/container_environment/LOG_LEVEL
+printf "%s" "${DATABASE_PATH}" > /var/run/s6/container_environment/DATABASE_PATH
+printf "%s" "${UPLOADS_PATH}" > /var/run/s6/container_environment/UPLOADS_PATH
+printf "%s" "${MAX_UPLOAD_SIZE}" > /var/run/s6/container_environment/MAX_UPLOAD_SIZE
+printf "%s" "${FACE_RECOGNITION_THRESHOLD}" > /var/run/s6/container_environment/FACE_RECOGNITION_THRESHOLD
+printf "%s" "${AI_ANALYSIS_TIMEOUT}" > /var/run/s6/container_environment/AI_ANALYSIS_TIMEOUT
+printf "%s" "${WEBSOCKET_ENABLED}" > /var/run/s6/container_environment/WEBSOCKET_ENABLED
+printf "%s" "${CORS_ENABLED}" > /var/run/s6/container_environment/CORS_ENABLED
+printf "%s" "${PUBLIC_URL}" > /var/run/s6/container_environment/PUBLIC_URL
+printf "%s" "${CORS_ORIGINS}" > /var/run/s6/container_environment/CORS_ORIGINS
 
 # Set fixed Node.js environment variables
-echo "production" > /var/run/s6/container_environment/NODE_ENV
-echo "3001" > /var/run/s6/container_environment/PORT
+printf "%s" "production" > /var/run/s6/container_environment/NODE_ENV
+printf "%s" "3001" > /var/run/s6/container_environment/PORT
 
 # Standalone mode requires adjusting nginx config for external access
 if [ "${WHORANG_ADDON_MODE}" = "false" ]; then
