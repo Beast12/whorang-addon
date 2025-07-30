@@ -1,5 +1,11 @@
 #!/usr/bin/with-contenv bash
 
+# Source the environment variables set by cont-init scripts
+# This is critical for ensuring variables like WHORANG_ADDON_MODE are available.
+if [ -f /etc/s6-overlay/s6-rc.d/user/env ]; then
+    . /etc/s6-overlay/s6-rc.d/user/env
+fi
+
 # Try to source bashio, but handle case where it's not available
 BASHIO_AVAILABLE=false
 if [ -f /usr/lib/bashio/bashio.sh ] && [ -f /etc/bashio.const ] 2>/dev/null; then
@@ -19,47 +25,23 @@ log_info() {
     fi
 }
 
-log_error() {
-    if [ "$BASHIO_AVAILABLE" = "true" ]; then
-        bashio::log.error "$1"
-    else
-        echo "[ERROR] $1" >&2
-    fi
-}
-
-# Start Node.js application
-log_info "Starting Node.js application..."
-
-# Set proper environment for Node.js
+# Set proper environment for Node.js and change to app directory
 export NODE_ENV=production
 export HOME=/app
-export PATH="/usr/local/bin:$PATH"
-
-# Change to the app directory
 cd /app || exit 1
 
-# In Home Assistant OS, run Node.js directly to avoid permission issues
-if [ "$WHORANG_ADDON_MODE" = "true" ]; then
-    log_info "Running in Home Assistant add-on mode - starting Node.js directly"
-    
-    # Ensure we have proper permissions on the app directory
-    chmod -R 755 /app 2>/dev/null || true
-    
-    # Ensure node_modules has proper permissions for native modules in HA mode
-    find /app/node_modules -type d -exec chmod 755 {} \; 2>/dev/null || true
-    find /app/node_modules -type f -exec chmod 644 {} \; 2>/dev/null || true
-    find /app/node_modules -name "*.node" -exec chmod 755 {} \; 2>/dev/null || true
-    find /app/node_modules -name "*.node" -exec chown node:node {} \; 2>/dev/null || true
-    find /app/node_modules -path "*/build/Release/*.node" -exec chmod 755 {} \; 2>/dev/null || true
-    find /app/node_modules -path "*/build/Release/*.node" -exec chown node:node {} \; 2>/dev/null || true
-    
-    # Start Node.js directly
-    exec node server.js
+log_info "Starting Node.js backend..."
+
+# Logic to handle HA Add-on mode vs. Standalone mode
+if [ "${WHORANG_ADDON_MODE}" = "true" ]; then
+    log_info "Running in Home Assistant add-on mode."
+    # In HA mode, permissions are managed by the OS, so we run as the default user.
+    # The init script has already set necessary permissions.
+    exec node src/server.js
 else
-    # Ensure the node user owns the app directory
+    log_info "Running in standalone mode."
+    # In standalone mode, we ensure the 'node' user owns the files and run the process as that user.
     chown -R node:node /app 2>/dev/null || true
-    
-    # Start Node.js as the node user using the s6-native way
-    log_info "Running in standalone mode - starting Node.js as 'node' user"
-    exec s6-setuidgid node node server.js
+    exec s6-setuidgid node node src/server.js
 fi
+
