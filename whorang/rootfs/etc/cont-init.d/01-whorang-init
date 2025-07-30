@@ -47,33 +47,42 @@ else
 fi
 printf "%s" "${WHORANG_ADDON_MODE}" > /var/run/s6/container_environment/WHORANG_ADDON_MODE
 
-# Load configuration based on mode
-if [ "${WHORANG_ADDON_MODE}" = "true" ] && [ "${BASHIO_IS_AVAILABLE}" = "true" ]; then
-    log_info "Loading configuration from Home Assistant add-on options via bashio..."
-    AI_PROVIDER=$(bashio::config 'ai_provider')
-    LOG_LEVEL=$(bashio::config 'log_level')
-    DATABASE_PATH=$(bashio::config 'database_path')
-    UPLOADS_PATH=$(bashio::config 'uploads_path')
-    MAX_UPLOAD_SIZE=$(bashio::config 'max_upload_size')
-    FACE_RECOGNITION_THRESHOLD=$(bashio::config 'face_recognition_threshold')
-    AI_ANALYSIS_TIMEOUT=$(bashio::config 'ai_analysis_timeout')
-    WEBSOCKET_ENABLED=$(bashio::config 'websocket_enabled')
-    CORS_ENABLED=$(bashio::config 'cors_enabled')
-    PUBLIC_URL=$(bashio::config 'public_url')
-    CORS_ORIGINS=$(bashio::config 'cors_origins' | paste -sd ',' -)
-elif [ "${WHORANG_ADDON_MODE}" = "true" ]; then
-    log_info "Loading configuration from /data/options.json using jq..."
-    AI_PROVIDER=$(jq -r '.ai_provider // "local"' /data/options.json)
-    LOG_LEVEL=$(jq -r '.log_level // "info"' /data/options.json)
-    DATABASE_PATH=$(jq -r '.database_path // "/data/whorang.db"' /data/options.json)
-    UPLOADS_PATH=$(jq -r '.uploads_path // "/data/uploads"' /data/options.json)
-    MAX_UPLOAD_SIZE=$(jq -r '.max_upload_size // 10' /data/options.json)
-    FACE_RECOGNITION_THRESHOLD=$(jq -r '.face_recognition_threshold // 0.8' /data/options.json)
-    AI_ANALYSIS_TIMEOUT=$(jq -r '.ai_analysis_timeout // 30' /data/options.json)
-    WEBSOCKET_ENABLED=$(jq -r '.websocket_enabled // true' /data/options.json)
-    CORS_ENABLED=$(jq -r '.cors_enabled // true' /data/options.json)
-    PUBLIC_URL=$(jq -r '.public_url // ""' /data/options.json)
-    CORS_ORIGINS=$(jq -r '(.cors_origins | join(",")) // "*"' /data/options.json)
+# Read configuration from Home Assistant options
+if [ "${WHORANG_ADDON_MODE}" = "true" ]; then
+    log_info "Loading configuration for Home Assistant add-on mode..."
+
+    CONFIG_KEYS=(
+        "ai_provider" "log_level" "database_path" "uploads_path" "max_upload_size" 
+        "face_recognition_threshold" "ai_analysis_timeout" "websocket_enabled" 
+        "cors_enabled" "public_url" "cors_origins"
+    )
+
+    for key in "${CONFIG_KEYS[@]}"; do
+        value=""
+        # First, try to get config from bashio if it's available
+        if [ "${BASHIO_IS_AVAILABLE}" = "true" ]; then
+            value=$(bashio::config "$key")
+        fi
+
+        # If bashio didn't provide a value, fall back to reading from options.json
+        if [[ -z "$value" ]] && [[ -f "/data/options.json" ]]; then
+            log_info "Falling back to /data/options.json for '$key'"
+            jq_value=$(jq -r ".${key}" /data/options.json)
+            if [[ "$jq_value" != "null" ]]; then
+                # Handle array for cors_origins, which needs special parsing
+                if [[ "$key" == "cors_origins" ]]; then
+                    value=$(jq -r '.cors_origins[]' /data/options.json | paste -sd ',' -)
+                else
+                    value="$jq_value"
+                fi
+            fi
+        fi
+
+        # Export the variable to the container's environment
+        VAR_NAME=$(echo "$key" | tr '[:lower:]' '[:upper:]')
+        export "${VAR_NAME}=${value}"
+        printf "%s" "$value" > "/var/run/s6/container_environment/$VAR_NAME"
+    done
 else
     log_info "Loading configuration from environment variables (standalone mode)..."
     AI_PROVIDER=${AI_PROVIDER:-local}
