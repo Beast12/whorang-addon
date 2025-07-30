@@ -2,6 +2,11 @@
 
 All notable changes to this add-on will be documented in this file.
 
+## [2.0.17] - 2025-07-30
+
+### Changed
+- **Version**: Bumped to v2.0.17 to create a fresh release with all recent stability fixes.
+
 ## [2.0.16] - 2025-07-30
 
 ### Fixed
