@@ -137,14 +137,30 @@ jobs:
       - name: Test Home Assistant Add-on
         run: |
           echo "🧪 Testing Home Assistant Add-on..."
-          
+
           # Pull the latest image
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          
+
+          # Prepare writable data directories
+          mkdir -p /tmp/whorang-standalone-data /tmp/whorang-addon-data
+          chmod 755 /tmp/whorang-standalone-data /tmp/whorang-addon-data
+          sudo chown root:root /tmp/whorang-standalone-data /tmp/whorang-addon-data
+
+          # Create minimal Home Assistant options file for addon mode detection
+          cat > /tmp/whorang-addon-data/options.json <<'EOF'
+          {
+            "ai_provider": "local",
+            "log_level": "info",
+            "database_path": "/data/whorang.db",
+            "uploads_path": "/data/uploads"
+          }
+          EOF
+
           # Test 1: Standalone mode (non-HA environment)
           echo "🔧 Testing standalone mode..."
-          docker run -d --name whorang-test-standalone \
+          docker run --init -d --name whorang-test-standalone \
             -p 8080:80 \
+            -v /tmp/whorang-standalone-data:/data:rw \
             -e WHORANG_ADDON_MODE=false \
             -e AI_PROVIDER=local \
             -e LOG_LEVEL=info \
@@ -222,22 +238,43 @@ jobs:
           
           # Test 2: Home Assistant add-on mode simulation
           echo "🏠 Testing Home Assistant add-on mode simulation..."
-          docker run -d --name whorang-test-addon \
+          docker run --init -d --name whorang-test-addon \
             -p 8081:80 \
+            -e HASSIO_TOKEN=dummy-token \
+            -e HASSIO_ADDON=http://127.0.0.1 \
             -e WHORANG_ADDON_MODE=true \
             -e AI_PROVIDER=local \
             -e LOG_LEVEL=info \
-            -v /tmp/whorang-test-data:/data \
+            -v /tmp/whorang-addon-data:/data:rw \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           
           # Wait for container to start
           sleep 15
-          
-          # Test bashio integration and HA mode detection
-          if docker logs whorang-test-addon | grep -q "Running as standalone Docker container"; then
-            echo "✅ HA mode detection working (expected: standalone when supervisor not available)"
+
+          # Validate HA add-on mode detection
+          if docker logs whorang-test-addon | grep -q "Home Assistant Add-on mode detected"; then
+            echo "✅ HA mode detection working"
           else
             echo "❌ HA mode detection failed"
+            docker logs whorang-test-addon
+            exit 1
+          fi
+
+          # Ensure initialization completed without permission errors
+          if docker logs whorang-test-addon | grep -q "Will use fallback path: /app"; then
+            echo "❌ Fallback storage used"
+            docker logs whorang-test-addon
+            exit 1
+          fi
+          if docker logs whorang-test-addon | grep -q "EACCES"; then
+            echo "❌ Permission errors detected"
+            docker logs whorang-test-addon
+            exit 1
+          fi
+          if docker logs whorang-test-addon | grep -q "WhoRang - AI-Powered Doorbell Intelligence"; then
+            echo "✅ Server start message present"
+          else
+            echo "❌ Server did not start correctly"
             docker logs whorang-test-addon
             exit 1
           fi
