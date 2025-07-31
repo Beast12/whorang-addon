@@ -28,6 +28,7 @@ log_info() {
 # Set proper environment for Node.js and change to app directory
 export NODE_ENV=production
 export HOME=/app
+export OPENSSL_CONF=/dev/null
 cd /app || exit 1
 
 log_info "Starting Node.js backend..."

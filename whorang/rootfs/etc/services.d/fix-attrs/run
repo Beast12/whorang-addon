@@ -13,7 +13,7 @@ echo "[fix-attrs] Ensuring correct permissions for /data directory..."
 if [ -d "/data" ]; then
     # Recursively change ownership to the 'nobody' user and 'nogroup' group.
     # This is the definitive fix for EACCES permission errors.
-    chown -R nobody:nogroup /data
+    chmod -R 775 /data
     echo "[fix-attrs] Permissions for /data set successfully."
 else
     echo "[fix-attrs] /data directory not found, skipping permission fix."
