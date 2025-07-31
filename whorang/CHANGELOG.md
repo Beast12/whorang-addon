@@ -2,6 +2,11 @@
 
 All notable changes to this add-on will be documented in this file.
 
+## [2.0.19] - 2025-07-31
+
+### Fixed
+- **Critical HAOS Runtime Errors**: Resolved multiple startup failures in the Home Assistant add-on environment, including API access, data directory permissions, Nginx logging, and Node.js OpenSSL errors.
+
 ## [2.0.18] - 2025-07-31
 
 ### Changed
