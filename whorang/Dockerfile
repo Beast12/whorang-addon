@@ -64,7 +64,7 @@ RUN mkdir -p /data /config /var/lib/nginx /var/log/nginx /run/nginx && \
     chown -R whorun:whorun /app /data /config /var/lib/nginx /var/log/nginx /run/nginx /tmp
 
 # 6. Ensure scripts are executable
-RUN chmod +x /app/docker-entrypoint.sh /app/run.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # 7. Set environment variables
 ENV NODE_ENV=production
