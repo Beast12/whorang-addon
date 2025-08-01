@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Version**: Bumped to v2.0.23 to reflect the latest backend fixes.
 
+## [2.0.26] - 2025-08-01
+
+### Fixed
+- **Container Startup**: Resolved critical `unknown user` errors by restoring user creation in the `Dockerfile` and correcting the Node.js service script to use the proper `whorun` user. This ensures all `s6-overlay` scripts can execute correctly.
+
 ## [2.0.25] - 2025-08-01
 
 ### Fixed

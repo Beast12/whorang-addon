@@ -50,6 +50,10 @@ COPY . .
 #    --unsafe-perm is critical for native module build scripts to run correctly as root.
 RUN npm install --unsafe-perm
 
+# Create a non-root user 'whorun' for running the application
+RUN addgroup -S -g 1000 whorun && \
+    adduser -S -u 1000 -G whorun whorun
+
 # 4. Clean up.
 #    Remove the build-time dependencies and clear caches to keep the image small.
 RUN apk del --no-cache --purge .build-dependencies \
