@@ -5,11 +5,14 @@ All notable changes to the WhoRang AI Doorbell Add-on will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.16] - 2025-08-01
+## [2.0.23] - 2025-08-01
 
 ### Fixed
 - **Database Initialization**: Resolved a critical startup error by refactoring the database initialization logic. All schema creation is now centralized in `databaseManager.js`, removing dependencies on external `.sql` files and ensuring the database is always correctly configured on startup.
 - **API Stability**: Fixed a `500 Internal Server Error` on the `/api/stats` endpoint by correctly registering the stats router in `server.js` using the dependency injection pattern.
+
+### Changed
+- **Version**: Bumped to v2.0.23 to reflect the latest backend fixes.
 
 ## [Unreleased]
 
