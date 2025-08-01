@@ -2,6 +2,15 @@
 
 All notable changes to this add-on will be documented in this file.
 
+## [2.0.20] - 2025-07-31
+
+### :rocket: Features & Fixes
+
+- **BREAKING CHANGE**: Complete rewrite of the Docker build and runtime environment to align with official Home Assistant addon best practices. This resolves persistent native module compilation errors (`ERR_DLOPEN_FAILED`) and permission issues.
+- Rewrote `Dockerfile` to use a clean, single-stage build, ensuring binary compatibility for native modules like `sharp`, `canvas`, and `better-sqlite3`.
+- Created a new `docker-entrypoint.sh` script to correctly set the `NODE_PATH` and start the application with the correct user, removing all complex `su-exec` logic.
+- Verified `config.yaml` is compatible with the new architecture (`init: false`).
+
 ## [2.0.19] - 2025-07-31
 
 ### Fixed
