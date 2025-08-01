@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Version**: Bumped to v2.0.23 to reflect the latest backend fixes.
 
+## [2.0.29] - 2025-08-01
+
+### Fixed
+- **Native Module Crash**: Fixed a critical `Error: Could not locate the bindings file` for `better-sqlite3`. The `Dockerfile` was not setting the correct ownership for `node_modules`, preventing the non-root user from accessing the required native binaries. A `chown` command has been added to fix permissions after `npm install`.
+
 ## [2.0.28] - 2025-08-01
 
 ### Fixed

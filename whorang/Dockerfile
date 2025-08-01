@@ -54,7 +54,11 @@ RUN npm install --unsafe-perm
 RUN addgroup -S -g 1000 whorun && \
     adduser -S -u 1000 -G whorun whorun
 
-# 4. Clean up.
+# 4. Set permissions.
+#    Change the ownership of the application directory to the non-root user.
+RUN chown -R whorun:whorun /app
+
+# 5. Clean up.
 #    Remove the build-time dependencies and clear caches to keep the image small.
 RUN apk del --no-cache --purge .build-dependencies \
     && rm -rf /root/.npm /tmp/*

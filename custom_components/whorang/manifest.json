@@ -12,5 +12,5 @@
   "loggers": ["aiohttp", "websockets"],
   "requirements": ["aiohttp>=3.8.0", "websockets>=11.0"],
   "single_config_entry": true,
-  "version": "2.0.28"
+  "version": "2.0.29"
 }
