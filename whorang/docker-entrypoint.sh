@@ -4,29 +4,20 @@
 # Home Assistant Add-on: WhoRang - Docker Entrypoint
 # ==============================================================================
 
-# 1. Set the Node.js path to include the globally installed modules.
-#    This is critical for finding native dependencies installed in the Docker image.
-export NODE_PATH=/app/node_modules:/data/node_modules
+set -e
 
-# 2. Set log level from addon configuration if available.
-if [ -f /data/options.json ]; then
-    export LOG_LEVEL=$(jq -r '.log_level // "info"' /data/options.json)
-else
-    export LOG_LEVEL="info"
-fi
+# 1. Create data directories and set permissions.
+#    This runs as root to ensure we can write to the mounted volumes.
+echo "Initializing data directories..."
+mkdir -p /data/uploads /data/db /config
+chown -R whorun:whorun /data /config
 
-# 3. Create required data directories.
-#    These are mounted from the host and persist across restarts.
-mkdir -p /data/uploads/faces \
-         /data/uploads/temp \
-         /data/uploads/thumbnails \
-         /data/db
-
-# 4. Start nginx in the background.
+# 2. Start nginx in the background.
 echo "Starting nginx..."
-/usr/sbin/nginx -c /etc/nginx/nginx.conf &
+nginx &
 
-# 5. Start the Node.js application.
-#    The container runs as a non-root user, so su-exec is not needed.
-echo "Starting WhoRang backend..."
-exec node /app/index.js
+# 3. Drop privileges and execute the main application.
+#    We use su-exec to run the Node.js process as the non-root 'whorun' user.
+echo "Starting WhoRang backend as 'whorun' user..."
+export NODE_PATH=/usr/lib/node_modules
+exec su-exec whorun node /app/server.js

@@ -74,7 +74,5 @@ ENV WHORANG_ADDON_MODE=true
 # 8. Expose the application port
 EXPOSE 3001
 
-# 9. Switch to the non-root user
-USER whorun
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
