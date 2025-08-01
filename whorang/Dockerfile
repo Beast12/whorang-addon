@@ -27,6 +27,7 @@ RUN apk add --no-cache --virtual .build-dependencies \
         freetype-dev \
     && apk add --no-cache \
         bash \
+        su-exec \
         nodejs \
         npm \
         nginx \

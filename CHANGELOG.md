@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Version**: Bumped to v2.0.23 to reflect the latest backend fixes.
 
+## [2.0.24] - 2025-08-01
+
+### Fixed
+- **Runtime Stability**: Resolved a critical container startup failure by adding the `su-exec` package to the Dockerfile. This fixes the `su-exec: not found` error and allows the application to start correctly.
+
+### Changed
+- **Version**: Bumped to v2.0.24 to reflect the critical runtime fix.
+
 ## [Unreleased]
 
 ## [2.0.22] - 2025-08-01
