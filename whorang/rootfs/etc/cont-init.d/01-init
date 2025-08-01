@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bash
+
+# Create required data directories
+echo "Initializing data directories..."
+mkdir -p /data/uploads
+mkdir -p /data/db
+mkdir -p /config

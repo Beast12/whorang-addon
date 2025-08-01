@@ -1,42 +1,7 @@
 #!/usr/bin/with-contenv bash
 
-# Try to source bashio, but handle case where it's not available
-BASHIO_AVAILABLE=false
-if [ -f /usr/lib/bashio/bashio.sh ] && [ -f /etc/bashio.const ] 2>/dev/null; then
-    # shellcheck source=/dev/null
-    source /usr/lib/bashio/bashio.sh 2>/dev/null || true
-    if command -v bashio::log.info >/dev/null 2>&1; then
-        BASHIO_AVAILABLE=true
-    fi
-fi
-
-# Function to log messages
-log_info() {
-    if [ "$BASHIO_AVAILABLE" = "true" ]; then
-        bashio::log.info "$1"
-    else
-        echo "[INFO] $1"
-    fi
-}
-
-log_error() {
-    if [ "$BASHIO_AVAILABLE" = "true" ]; then
-        bashio::log.error "$1"
-    else
-        echo "[ERROR] $1" >&2
-    fi
-}
-
-# Start nginx with proper configuration for Home Assistant add-on
-log_info "Starting nginx..."
-
-# Remove default nginx configurations that might conflict
-rm -f /etc/nginx/sites-enabled/* 2>/dev/null || true
-rm -f /etc/nginx/sites-available/* 2>/dev/null || true
-
-# Check if running in standalone mode and adjust access control
-if [ "$WHORANG_ADDON_MODE" = "false" ]; then
-    # Replace restrictive access control with allow all for standalone mode
+# Start nginx in the foreground for s6-overlay supervision
+exec /usr/sbin/nginx -g 'daemon off;'
     sed -i '/allow 172\.30\.32\.2;/,/# Note: In standalone mode, run\.sh will replace this with/c\
     # Standalone mode - allow all access\
     allow all;' /etc/nginx/conf.d/default.conf 2>/dev/null || true

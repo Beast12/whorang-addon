@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bash
+
+# Set the Node.js path to find globally installed modules
+export NODE_PATH=/usr/lib/node_modules
+
+# Start the Node.js application
+exec node /app/server.js
