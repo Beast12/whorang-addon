@@ -2,7 +2,6 @@ const Canvas = require('./lib/canvas')
 const Image = require('./lib/image')
 const CanvasRenderingContext2D = require('./lib/context2d')
 const CanvasPattern = require('./lib/pattern')
-const parseFont = require('./lib/parse-font')
 const packageJson = require('./package.json')
 const bindings = require('./lib/bindings')
 const fs = require('fs')
@@ -10,6 +9,8 @@ const PNGStream = require('./lib/pngstream')
 const PDFStream = require('./lib/pdfstream')
 const JPEGStream = require('./lib/jpegstream')
 const { DOMPoint, DOMMatrix } = require('./lib/DOMMatrix')
+
+bindings.setDOMMatrix(DOMMatrix)
 
 function createCanvas (width, height, type) {
   return new Canvas(width, height, type)
@@ -70,7 +71,6 @@ exports.DOMPoint = DOMPoint
 
 exports.registerFont = registerFont
 exports.deregisterAllFonts = deregisterAllFonts
-exports.parseFont = parseFont
 
 exports.createCanvas = createCanvas
 exports.createImageData = createImageData

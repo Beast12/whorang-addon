@@ -1,6 +1,7 @@
 // Copyright (c) 2010 LearnBoost <tj@learnboost.com>
 
 #include "Image.h"
+#include "InstanceData.h"
 
 #include "bmp/BMPParser.h"
 #include "Canvas.h"
@@ -8,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <node_buffer.h>
+#include <sys/stat.h>
 
 /* Cairo limit:
   * https://lists.cairographics.org/archives/cairo/2010-December/021422.html
@@ -36,98 +38,88 @@ struct canvas_jpeg_error_mgr: jpeg_error_mgr {
  */
 
 typedef struct {
+  Napi::Env* env;
   unsigned len;
   uint8_t *buf;
 } read_closure_t;
-
-using namespace v8;
-
-Nan::Persistent<FunctionTemplate> Image::constructor;
 
 /*
  * Initialize Image.
  */
 
 void
-Image::Initialize(Nan::ADDON_REGISTER_FUNCTION_ARGS_TYPE target) {
-  Nan::HandleScope scope;
+Image::Initialize(Napi::Env& env, Napi::Object& exports) {
+  InstanceData *data = env.GetInstanceData<InstanceData>();
+  Napi::HandleScope scope(env);
 
-  Local<FunctionTemplate> ctor = Nan::New<FunctionTemplate>(Image::New);
-  constructor.Reset(ctor);
-  ctor->InstanceTemplate()->SetInternalFieldCount(1);
-  ctor->SetClassName(Nan::New("Image").ToLocalChecked());
-
-  // Prototype
-  Local<ObjectTemplate> proto = ctor->PrototypeTemplate();
-  Nan::SetAccessor(proto, Nan::New("complete").ToLocalChecked(), GetComplete);
-  Nan::SetAccessor(proto, Nan::New("width").ToLocalChecked(), GetWidth, SetWidth);
-  Nan::SetAccessor(proto, Nan::New("height").ToLocalChecked(), GetHeight, SetHeight);
-  Nan::SetAccessor(proto, Nan::New("naturalWidth").ToLocalChecked(), GetNaturalWidth);
-  Nan::SetAccessor(proto, Nan::New("naturalHeight").ToLocalChecked(), GetNaturalHeight);
-  Nan::SetAccessor(proto, Nan::New("dataMode").ToLocalChecked(), GetDataMode, SetDataMode);
-
-  ctor->Set(Nan::New("MODE_IMAGE").ToLocalChecked(), Nan::New<Number>(DATA_IMAGE));
-  ctor->Set(Nan::New("MODE_MIME").ToLocalChecked(), Nan::New<Number>(DATA_MIME));
-
-  Local<Context> ctx = Nan::GetCurrentContext();
-  Nan::Set(target, Nan::New("Image").ToLocalChecked(), ctor->GetFunction(ctx).ToLocalChecked());
+  Napi::Function ctor = DefineClass(env, "Image", {
+    InstanceAccessor<&Image::GetComplete>("complete", napi_default_jsproperty),
+    InstanceAccessor<&Image::GetWidth, &Image::SetWidth>("width", napi_default_jsproperty),
+    InstanceAccessor<&Image::GetHeight, &Image::SetHeight>("height", napi_default_jsproperty),
+    InstanceAccessor<&Image::GetNaturalWidth>("naturalWidth", napi_default_jsproperty),
+    InstanceAccessor<&Image::GetNaturalHeight>("naturalHeight", napi_default_jsproperty),
+    InstanceAccessor<&Image::GetDataMode, &Image::SetDataMode>("dataMode", napi_default_jsproperty),
+    StaticValue("MODE_IMAGE", Napi::Number::New(env, DATA_IMAGE), napi_default_jsproperty),
+    StaticValue("MODE_MIME", Napi::Number::New(env, DATA_MIME), napi_default_jsproperty)
+  });
 
   // Used internally in lib/image.js
-  NAN_EXPORT(target, GetSource);
-  NAN_EXPORT(target, SetSource);
+  exports.Set("GetSource", Napi::Function::New(env, &GetSource));
+  exports.Set("SetSource", Napi::Function::New(env, &SetSource));
+
+  data->ImageCtor = Napi::Persistent(ctor);
+  exports.Set("Image", ctor);
 }
 
 /*
  * Initialize a new Image.
  */
 
-NAN_METHOD(Image::New) {
-  if (!info.IsConstructCall()) {
-    return Nan::ThrowTypeError("Class constructors cannot be invoked without 'new'");
-  }
-
-  Image *img = new Image;
-  img->data_mode = DATA_IMAGE;
-  img->Wrap(info.This());
-  Nan::Set(info.This(), Nan::New("onload").ToLocalChecked(), Nan::Null()).Check();
-  Nan::Set(info.This(), Nan::New("onerror").ToLocalChecked(), Nan::Null()).Check();
-  info.GetReturnValue().Set(info.This());
+Image::Image(const Napi::CallbackInfo& info) : ObjectWrap<Image>(info), env(info.Env()) {
+  data_mode = DATA_IMAGE;
+  info.This().ToObject().Unwrap().Set("onload", env.Null());
+  info.This().ToObject().Unwrap().Set("onerror", env.Null());
+  filename = NULL;
+  _data = nullptr;
+  _data_len = 0;
+  _surface = NULL;
+  width = height = 0;
+  naturalWidth = naturalHeight = 0;
+  state = DEFAULT;
+#ifdef HAVE_RSVG
+  _rsvg = NULL;
+  _is_svg = false;
+  _svg_last_width = _svg_last_height = 0;
+#endif
 }
 
 /*
  * Get complete boolean.
  */
 
-NAN_GETTER(Image::GetComplete) {
-  info.GetReturnValue().Set(Nan::New<Boolean>(true));
+Napi::Value
+Image::GetComplete(const Napi::CallbackInfo& info) {
+  return Napi::Boolean::New(env, true);
 }
 
 /*
  * Get dataMode.
  */
 
-NAN_GETTER(Image::GetDataMode) {
-  if (!Image::constructor.Get(info.GetIsolate())->HasInstance(info.This())) {
-    Nan::ThrowTypeError("Method Image.GetDataMode called on incompatible receiver");
-    return;
-  }
-  Image *img = Nan::ObjectWrap::Unwrap<Image>(info.This());
-  info.GetReturnValue().Set(Nan::New<Number>(img->data_mode));
+Napi::Value
+Image::GetDataMode(const Napi::CallbackInfo& info) {
+  return Napi::Number::New(env, data_mode);
 }
 
 /*
  * Set dataMode.
  */
 
-NAN_SETTER(Image::SetDataMode) {
-  if (!Image::constructor.Get(info.GetIsolate())->HasInstance(info.This())) {
-    Nan::ThrowTypeError("Method Image.SetDataMode called on incompatible receiver");
-    return;
-  }
-  if (value->IsNumber()) {
-    Image *img = Nan::ObjectWrap::Unwrap<Image>(info.This());
-    int mode = Nan::To<uint32_t>(value).FromMaybe(0);
-    img->data_mode = (data_mode_t) mode;
+void
+Image::SetDataMode(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (value.IsNumber()) {
+    int mode = value.As<Napi::Number>().Uint32Value();
+    data_mode = (data_mode_t) mode;
   }
 }
 
@@ -135,40 +127,28 @@ NAN_SETTER(Image::SetDataMode) {
  * Get natural width
  */
 
-NAN_GETTER(Image::GetNaturalWidth) {
-  if (!Image::constructor.Get(info.GetIsolate())->HasInstance(info.This())) {
-    Nan::ThrowTypeError("Method Image.GetNaturalWidth called on incompatible receiver");
-    return;
-  }
-  Image *img = Nan::ObjectWrap::Unwrap<Image>(info.This());
-  info.GetReturnValue().Set(Nan::New<Number>(img->naturalWidth));
+Napi::Value
+Image::GetNaturalWidth(const Napi::CallbackInfo& info) {
+  return Napi::Number::New(env, naturalWidth);
 }
 
 /*
  * Get width.
  */
 
-NAN_GETTER(Image::GetWidth) {
-  if (!Image::constructor.Get(info.GetIsolate())->HasInstance(info.This())) {
-    Nan::ThrowTypeError("Method Image.GetWidth called on incompatible receiver");
-    return;
-  }
-  Image *img = Nan::ObjectWrap::Unwrap<Image>(info.This());
-  info.GetReturnValue().Set(Nan::New<Number>(img->width));
+Napi::Value
+Image::GetWidth(const Napi::CallbackInfo& info) {
+  return Napi::Number::New(env, width);
 }
 
 /*
  * Set width.
  */
 
-NAN_SETTER(Image::SetWidth) {
-  if (!Image::constructor.Get(info.GetIsolate())->HasInstance(info.This())) {
-    Nan::ThrowTypeError("Method Image.SetWidth called on incompatible receiver");
-    return;
-  }
-  if (value->IsNumber()) {
-    Image *img = Nan::ObjectWrap::Unwrap<Image>(info.This());
-    img->width = Nan::To<uint32_t>(value).FromMaybe(0);
+void
+Image::SetWidth(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (value.IsNumber()) {
+    width = value.As<Napi::Number>().Uint32Value();
   }
 }
 
@@ -176,40 +156,27 @@ NAN_SETTER(Image::SetWidth) {
  * Get natural height
  */
 
-NAN_GETTER(Image::GetNaturalHeight) {
-  if (!Image::constructor.Get(info.GetIsolate())->HasInstance(info.This())) {
-    Nan::ThrowTypeError("Method Image.GetNaturalHeight called on incompatible receiver");
-    return;
-  }
-  Image *img = Nan::ObjectWrap::Unwrap<Image>(info.This());
-  info.GetReturnValue().Set(Nan::New<Number>(img->naturalHeight));
+Napi::Value
+Image::GetNaturalHeight(const Napi::CallbackInfo& info) {
+  return Napi::Number::New(env, naturalHeight);
 }
 
 /*
  * Get height.
  */
 
-NAN_GETTER(Image::GetHeight) {
-  if (!Image::constructor.Get(info.GetIsolate())->HasInstance(info.This())) {
-    Nan::ThrowTypeError("Method Image.GetHeight called on incompatible receiver");
-    return;
-  }
-  Image *img = Nan::ObjectWrap::Unwrap<Image>(info.This());
-  info.GetReturnValue().Set(Nan::New<Number>(img->height));
+Napi::Value
+Image::GetHeight(const Napi::CallbackInfo& info) {
+  return Napi::Number::New(env, height);
 }
 /*
  * Set height.
  */
 
-NAN_SETTER(Image::SetHeight) {
-  if (!Image::constructor.Get(info.GetIsolate())->HasInstance(info.This())) {
-    // #1534
-    Nan::ThrowTypeError("Method Image.SetHeight called on incompatible receiver");
-    return;
-  }
-  if (value->IsNumber()) {
-    Image *img = Nan::ObjectWrap::Unwrap<Image>(info.This());
-    img->height = Nan::To<uint32_t>(value).FromMaybe(0);
+void
+Image::SetHeight(const Napi::CallbackInfo& info, const Napi::Value& value) {
+  if (value.IsNumber()) {
+    height = value.As<Napi::Number>().Uint32Value();
   }
 }
 
@@ -217,14 +184,11 @@ NAN_SETTER(Image::SetHeight) {
  * Get src path.
  */
 
-NAN_METHOD(Image::GetSource){
-  if (!Image::constructor.Get(info.GetIsolate())->HasInstance(info.This())) {
-    // #1534
-    Nan::ThrowTypeError("Method Image.GetSource called on incompatible receiver");
-    return;
-  }
-  Image *img = Nan::ObjectWrap::Unwrap<Image>(info.This());
-  info.GetReturnValue().Set(Nan::New<String>(img->filename ? img->filename : "").ToLocalChecked());
+Napi::Value
+Image::GetSource(const Napi::CallbackInfo& info){
+  Napi::Env env = info.Env();
+  Image *img = Image::Unwrap(info.This().As<Napi::Object>());
+  return Napi::String::New(env, img->filename ? img->filename : "");
 }
 
 /*
@@ -235,7 +199,7 @@ void
 Image::clearData() {
   if (_surface) {
     cairo_surface_destroy(_surface);
-    Nan::AdjustExternalMemory(-_data_len);
+    Napi::MemoryManagement::AdjustExternalMemory(env, -_data_len);
     _data_len = 0;
     _surface = NULL;
   }
@@ -262,55 +226,49 @@ Image::clearData() {
  * Set src path.
  */
 
-NAN_METHOD(Image::SetSource){
-  if (!Image::constructor.Get(info.GetIsolate())->HasInstance(info.This())) {
-    // #1534
-    Nan::ThrowTypeError("Method Image.SetSource called on incompatible receiver");
-    return;
-  }
-  Image *img = Nan::ObjectWrap::Unwrap<Image>(info.This());
+void
+Image::SetSource(const Napi::CallbackInfo& info){
+  Napi::Env env = info.Env();
+  Napi::Object This = info.This().As<Napi::Object>();
+  Image *img = Image::Unwrap(This);
+
   cairo_status_t status = CAIRO_STATUS_READ_ERROR;
 
-  Local<Value> value = info[0];
+  Napi::Value value = info[0];
 
   img->clearData();
   // Clear errno in case some unrelated previous syscall failed
   errno = 0;
 
   // url string
-  if (value->IsString()) {
-    Nan::Utf8String src(value);
+  if (value.IsString()) {
+    std::string src = value.As<Napi::String>().Utf8Value();
     if (img->filename) free(img->filename);
-    img->filename = strdup(*src);
+    img->filename = strdup(src.c_str());
     status = img->load();
   // Buffer
-  } else if (node::Buffer::HasInstance(value)) {
-    uint8_t *buf = (uint8_t *) node::Buffer::Data(Nan::To<Object>(value).ToLocalChecked());
-    unsigned len = node::Buffer::Length(Nan::To<Object>(value).ToLocalChecked());
+  } else if (value.IsBuffer()) {
+    uint8_t *buf = value.As<Napi::Buffer<uint8_t>>().Data();
+    unsigned len = value.As<Napi::Buffer<uint8_t>>().Length();
     status = img->loadFromBuffer(buf, len);
   }
 
   if (status) {
-    Local<Value> onerrorFn = Nan::Get(info.This(), Nan::New("onerror").ToLocalChecked()).ToLocalChecked();
-    if (onerrorFn->IsFunction()) {
-      Local<Value> argv[1];
-      CanvasError errorInfo = img->errorInfo;
-      if (errorInfo.cerrno) {
-        argv[0] = Nan::ErrnoException(errorInfo.cerrno, errorInfo.syscall.c_str(), errorInfo.message.c_str(), errorInfo.path.c_str());
-      } else if (!errorInfo.message.empty()) {
-        argv[0] = Nan::Error(Nan::New(errorInfo.message).ToLocalChecked());
+    Napi::Value onerrorFn;
+    if (This.Get("onerror").UnwrapTo(&onerrorFn) && onerrorFn.IsFunction()) {
+      Napi::Error arg;
+      if (img->errorInfo.empty()) {
+        arg = Napi::Error::New(env, Napi::String::New(env, cairo_status_to_string(status)));
       } else {
-        argv[0] = Nan::Error(Nan::New(cairo_status_to_string(status)).ToLocalChecked());
+        arg = img->errorInfo.toError(env);
       }
-      Local<Context> ctx = Nan::GetCurrentContext();
-      Nan::Call(onerrorFn.As<Function>(), ctx->Global(), 1, argv);
+      onerrorFn.As<Napi::Function>().Call({ arg.Value() });
     }
   } else {
     img->loaded();
-    Local<Value> onloadFn = Nan::Get(info.This(), Nan::New("onload").ToLocalChecked()).ToLocalChecked();
-    if (onloadFn->IsFunction()) {
-      Local<Context> ctx = Nan::GetCurrentContext();
-      Nan::Call(onloadFn.As<Function>(), ctx->Global(), 0, NULL);
+    Napi::Value onloadFn;
+    if (This.Get("onload").UnwrapTo(&onloadFn) && onloadFn.IsFunction()) {
+      onloadFn.As<Napi::Function>().Call({});
     }
   }
 }
@@ -380,6 +338,7 @@ Image::loadPNGFromBuffer(uint8_t *buf) {
   read_closure_t closure;
   closure.len = 0;
   closure.buf = buf;
+  closure.env = &env;
   _surface = cairo_image_surface_create_from_png_stream(readPNG, &closure);
   cairo_status_t status = cairo_surface_status(_surface);
   if (status) return status;
@@ -396,25 +355,6 @@ Image::readPNG(void *c, uint8_t *data, unsigned int len) {
   memcpy(data, closure->buf + closure->len, len);
   closure->len += len;
   return CAIRO_STATUS_SUCCESS;
-}
-
-/*
- * Initialize a new Image.
- */
-
-Image::Image() {
-  filename = NULL;
-  _data = nullptr;
-  _data_len = 0;
-  _surface = NULL;
-  width = height = 0;
-  naturalWidth = naturalHeight = 0;
-  state = DEFAULT;
-#ifdef HAVE_RSVG
-  _rsvg = NULL;
-  _is_svg = false;
-  _svg_last_width = _svg_last_height = 0;
-#endif
 }
 
 /*
@@ -444,13 +384,13 @@ Image::load() {
 
 void
 Image::loaded() {
-  Nan::HandleScope scope;
+  Napi::HandleScope scope(env);
   state = COMPLETE;
 
   width = naturalWidth = cairo_image_surface_get_width(_surface);
   height = naturalHeight = cairo_image_surface_get_height(_surface);
   _data_len = naturalHeight * cairo_image_surface_get_stride(_surface);
-  Nan::AdjustExternalMemory(_data_len);
+  Napi::MemoryManagement::AdjustExternalMemory(env, _data_len);
 }
 
 /*
@@ -467,7 +407,8 @@ cairo_surface_t *Image::surface() {
     cairo_status_t status = renderSVGToSurface();
     if (status != CAIRO_STATUS_SUCCESS) {
       g_object_unref(_rsvg);
-      Nan::ThrowError(Canvas::Error(status));
+      Napi::Error::New(env, cairo_status_to_string(status)).ThrowAsJavaScriptException();
+
       return NULL;
     }
   }
@@ -825,6 +766,50 @@ static void jpeg_mem_src (j_decompress_ptr cinfo, void* buffer, long nbytes) {
 
 #endif
 
+class BufferReader : public Image::Reader {
+public:
+  BufferReader(uint8_t* buf, unsigned len) : _buf(buf), _len(len), _idx(0) {}
+
+  bool hasBytes(unsigned n) const override { return (_idx + n - 1 < _len); }
+
+  uint8_t getNext() override {
+    return _buf[_idx++];
+  }
+
+  void skipBytes(unsigned n) override { _idx += n; }
+
+private:
+  uint8_t* _buf;  // we do not own this
+  unsigned _len;
+  unsigned _idx;
+};
+
+class StreamReader : public Image::Reader {
+public:
+  StreamReader(FILE *stream) : _stream(stream), _len(0), _idx(0) {
+    fseek(_stream, 0, SEEK_END);
+    _len = ftell(_stream);
+    fseek(_stream, 0, SEEK_SET);
+  }
+
+  bool hasBytes(unsigned n) const override { return (_idx + n - 1 < _len); }
+
+  uint8_t getNext() override {
+    ++_idx;
+    return getc(_stream);
+  }
+
+  void skipBytes(unsigned n) override {
+    _idx += n;
+    fseek(_stream, _idx, SEEK_SET);
+  }
+
+private:
+  FILE* _stream;
+  unsigned _len;
+  unsigned _idx;
+};
+
 void Image::jpegToARGB(jpeg_decompress_struct* args, uint8_t* data, uint8_t* src, JPEGDecodeL decode) {
   int stride = naturalWidth * 4;
   for (int y = 0; y < naturalHeight; ++y) {
@@ -843,10 +828,11 @@ void Image::jpegToARGB(jpeg_decompress_struct* args, uint8_t* data, uint8_t* src
  */
 
 cairo_status_t
-Image::decodeJPEGIntoSurface(jpeg_decompress_struct *args) {
+Image::decodeJPEGIntoSurface(jpeg_decompress_struct *args, Orientation orientation) {
+  const int channels = 4;
   cairo_status_t status = CAIRO_STATUS_SUCCESS;
 
-  uint8_t *data = new uint8_t[naturalWidth * naturalHeight * 4];
+  uint8_t *data = new uint8_t[naturalWidth * naturalHeight * channels];
   if (!data) {
     jpeg_abort_decompress(args);
     jpeg_destroy_decompress(args);
@@ -893,6 +879,8 @@ Image::decodeJPEGIntoSurface(jpeg_decompress_struct *args) {
       break;
   }
 
+  updateDimensionsForOrientation(orientation);
+
   if (!status) {
     _surface = cairo_image_surface_create_for_data(
         data
@@ -905,6 +893,8 @@ Image::decodeJPEGIntoSurface(jpeg_decompress_struct *args) {
   jpeg_finish_decompress(args);
   jpeg_destroy_decompress(args);
   status = cairo_surface_status(_surface);
+
+  rotatePixels(data, naturalWidth, naturalHeight, channels, orientation);
 
   delete[] src;
 
@@ -981,6 +971,10 @@ Image::decodeJPEGBufferIntoMimeSurface(uint8_t *buf, unsigned len) {
     return CAIRO_STATUS_NO_MEMORY;
   }
 
+  BufferReader reader(buf, len);
+  Orientation orientation = getExifOrientation(reader);
+  updateDimensionsForOrientation(orientation);
+
   // New image surface
   _surface = cairo_image_surface_create_for_data(
       data
@@ -999,6 +993,8 @@ Image::decodeJPEGBufferIntoMimeSurface(uint8_t *buf, unsigned len) {
     return status;
   }
 
+  rotatePixels(data, naturalWidth, naturalHeight, 1, orientation);
+
   _data = data;
 
   return assignDataAsMime(buf, len, CAIRO_MIME_TYPE_JPEG);
@@ -1010,7 +1006,8 @@ Image::decodeJPEGBufferIntoMimeSurface(uint8_t *buf, unsigned len) {
 
 void
 clearMimeData(void *closure) {
-  Nan::AdjustExternalMemory(
+  Napi::MemoryManagement::AdjustExternalMemory(
+      *static_cast<read_closure_t *>(closure)->env,
       -static_cast<int>((static_cast<read_closure_t *>(closure)->len)));
   free(static_cast<read_closure_t *>(closure)->buf);
   free(closure);
@@ -1039,10 +1036,11 @@ Image::assignDataAsMime(uint8_t *data, int len, const char *mime_type) {
 
   memcpy(mime_data, data, len);
 
+  mime_closure->env = &env;
   mime_closure->buf = mime_data;
   mime_closure->len = len;
 
-  Nan::AdjustExternalMemory(len);
+  Napi::MemoryManagement::AdjustExternalMemory(env, len);
 
   return cairo_surface_set_mime_data(_surface
     , mime_type
@@ -1058,6 +1056,9 @@ Image::assignDataAsMime(uint8_t *data, int len, const char *mime_type) {
 
 cairo_status_t
 Image::loadJPEGFromBuffer(uint8_t *buf, unsigned len) {
+  BufferReader reader(buf, len);
+  Orientation orientation = getExifOrientation(reader);
+
   // TODO: remove this duplicate logic
   // JPEG setup
   struct jpeg_decompress_struct args;
@@ -1085,7 +1086,7 @@ Image::loadJPEGFromBuffer(uint8_t *buf, unsigned len) {
   width = naturalWidth = args.output_width;
   height = naturalHeight = args.output_height;
 
-  return decodeJPEGIntoSurface(&args);
+  return decodeJPEGIntoSurface(&args, orientation);
 }
 
 /*
@@ -1101,6 +1102,13 @@ Image::loadJPEG(FILE *stream) {
 #else
   if (data_mode == DATA_IMAGE) { // Can lazily read in the JPEG.
 #endif
+    Orientation orientation = NORMAL;
+    {
+    StreamReader reader(stream);
+    orientation = getExifOrientation(reader);
+    rewind(stream);
+    }
+
     // JPEG setup
     struct jpeg_decompress_struct args;
     struct canvas_jpeg_error_mgr err;
@@ -1133,7 +1141,7 @@ Image::loadJPEG(FILE *stream) {
     width = naturalWidth = args.output_width;
     height = naturalHeight = args.output_height;
 
-    status = decodeJPEGIntoSurface(&args);
+    status = decodeJPEGIntoSurface(&args, orientation);
     fclose(stream);
   } else { // We'll need the actual source jpeg data, so read fully.
     uint8_t *buf;
@@ -1173,6 +1181,283 @@ Image::loadJPEG(FILE *stream) {
   return status;
 }
 
+/*
+ * Returns the Exif orientation if one exists, otherwise returns NORMAL
+ */
+
+Image::Orientation
+Image::getExifOrientation(Reader& jpeg) {
+  static const char kJpegStartOfImage = (char)0xd8;
+  static const char kJpegStartOfFrameBaseline = (char)0xc0;
+  static const char kJpegStartOfFrameProgressive = (char)0xc2;
+  static const char kJpegHuffmanTable = (char)0xc4;
+  static const char kJpegQuantizationTable = (char)0xdb;
+  static const char kJpegRestartInterval = (char)0xdd;
+  static const char kJpegComment = (char)0xfe;
+  static const char kJpegStartOfScan = (char)0xda;
+  static const char kJpegApp0 = (char)0xe0;
+  static const char kJpegApp1 = (char)0xe1;
+
+  // Find the Exif tag (if it exists)
+  int exif_len = 0;
+  bool done = false;
+  while (!done && jpeg.hasBytes(1)) {
+    while (jpeg.hasBytes(1) && jpeg.getNext() != 0xff) {
+      // noop
+    }
+    if (jpeg.hasBytes(1)) {
+      char tag = jpeg.getNext();
+      switch (tag) {
+        case kJpegStartOfImage:
+          break;  // beginning of file, no extra bytes
+        case kJpegRestartInterval:
+          jpeg.skipBytes(4);
+          break;
+        case kJpegStartOfFrameBaseline:
+        case kJpegStartOfFrameProgressive:
+        case kJpegHuffmanTable:
+        case kJpegQuantizationTable:
+        case kJpegComment:
+        case kJpegApp0:
+        case kJpegApp1: {
+          if (jpeg.hasBytes(2)) {
+            uint16_t tag_len = 0;
+            tag_len |= jpeg.getNext() << 8;
+            tag_len |= jpeg.getNext();
+            // The tag length includes the two bytes for the length
+            uint16_t tag_content_len = std::max(0, tag_len - 2);
+            if (tag != kJpegApp1 || !jpeg.hasBytes(tag_content_len)) {
+              jpeg.skipBytes(tag_content_len); // skip JPEG tags we ignore.
+            } else if (!jpeg.hasBytes(6)) {
+              jpeg.skipBytes(tag_content_len); // too short to have "Exif\0\0"
+            } else {
+              if (jpeg.getNext() == 'E' && jpeg.getNext() == 'x' &&
+                  jpeg.getNext() == 'i' && jpeg.getNext() == 'f' &&
+                  jpeg.getNext() == '\0' && jpeg.getNext() == '\0') {
+                  exif_len = tag_content_len - 6;
+                  done = true;
+              } else {
+                jpeg.skipBytes(tag_content_len); // too short to have "Exif\0\0"
+              }
+            }
+          } else {
+            done = true;  // shouldn't happen: corrupt file or we have a bug
+          }
+          break;
+        }
+        case kJpegStartOfScan:
+        default:
+            done = true;  // got to the image, apparently no exif tags here
+            break;
+      }
+    }
+  }
+
+  // Parse exif if it exists. If it does, we have already checked that jpeglen
+  // is longer than exifStart + exifLen, so we can safely index the data
+  if (exif_len > 0) {
+    // The first two bytes of TIFF header are "II" if little-endian ("Intel")
+    // and "MM" if big-endian ("Motorola")
+    const bool isLE = (jpeg.getNext() == 'I');
+    jpeg.skipBytes(3);  // +1 for the other I/M, +2 for 0x002a
+
+    auto readUint16Little = [](Reader &jpeg) -> uint32_t {
+      uint16_t val = uint16_t(jpeg.getNext());
+      val |= uint16_t(jpeg.getNext()) << 8;
+      return val;
+    };
+    auto readUint32Little = [](Reader &jpeg) -> uint32_t {
+      uint32_t val = uint32_t(jpeg.getNext());
+      val |= uint32_t(jpeg.getNext()) << 8;
+      val |= uint32_t(jpeg.getNext()) << 16;
+      val |= uint32_t(jpeg.getNext()) << 24;
+      return val;
+    };
+    auto readUint16Big = [](Reader &jpeg) -> uint32_t {
+      uint16_t val = uint16_t(jpeg.getNext()) << 8;
+      val |= uint16_t(jpeg.getNext());
+      return val;
+    };
+    auto readUint32Big = [](Reader &jpeg) -> uint32_t {
+      uint32_t val = uint32_t(jpeg.getNext()) << 24;
+      val |= uint32_t(jpeg.getNext()) << 16;
+      val |= uint32_t(jpeg.getNext()) << 8;
+      val |= uint32_t(jpeg.getNext());
+      return val;
+    };
+    // The first two bytes of TIFF header are "II" if little-endian ("Intel")
+    // and "MM" if big-endian ("Motorola")
+    auto readUint32 = [readUint32Little, readUint32Big, isLE](Reader &jpeg) -> uint32_t {
+      return isLE ? readUint32Little(jpeg) : readUint32Big(jpeg);
+    };
+    auto readUint16 = [readUint16Little, readUint16Big, isLE](Reader &jpeg) -> uint32_t {
+      return isLE ? readUint16Little(jpeg) : readUint16Big(jpeg);
+    };
+    // offset to the IFD0 (offset from beginning of TIFF header, II/MM,
+    // which is 8 bytes before where we are after reading the uint32)
+    jpeg.skipBytes(readUint32(jpeg) - 8);
+
+    // Read the IFD0 ("Image File Directory 0")
+    // | NN |                     n entries in directory (2 bytes)
+    // | TT | tt | nnnn | vvvv |  entry:  tag (2b), data type (2b),
+    //                                    n components (4b), value/offset (4b)
+    if (jpeg.hasBytes(2)) {
+      uint16_t nEntries = readUint16(jpeg);
+      for (uint16_t i = 0;  i < nEntries && jpeg.hasBytes(2);  ++i) {
+        uint16_t tag = readUint16(jpeg);
+        // The entry is 12 bytes. We already read the 2 bytes for the tag.
+        jpeg.skipBytes(6);  // skip 2 for the data type, skip 4 n components.
+        if (tag == 0x112) {
+          switch (readUint16(jpeg)) {  // orientation tag is always one uint16
+            case 1: return NORMAL;
+            case 2: return MIRROR_HORIZ;
+            case 3: return ROTATE_180;
+            case 4: return MIRROR_VERT;
+            case 5: return MIRROR_HORIZ_AND_ROTATE_270_CW;
+            case 6: return ROTATE_90_CW;
+            case 7: return MIRROR_HORIZ_AND_ROTATE_90_CW;
+            case 8: return ROTATE_270_CW;
+            default: return NORMAL;
+          }
+        } else {
+          jpeg.skipBytes(4);  // skip the four bytes for the value
+        }
+      }
+    }
+  }
+
+  return NORMAL;
+}
+
+/*
+ * Updates the dimensions of the bitmap according to the orientation
+ */
+
+void Image::updateDimensionsForOrientation(Orientation orientation) {
+  switch (orientation) {
+    case ROTATE_90_CW:
+    case ROTATE_270_CW:
+    case MIRROR_HORIZ_AND_ROTATE_90_CW:
+    case MIRROR_HORIZ_AND_ROTATE_270_CW: {
+      int tmp = naturalWidth;
+      naturalWidth = naturalHeight;
+      naturalHeight = tmp;
+      tmp = width;
+      width = height;
+      height = tmp;
+      break;
+    }
+    case NORMAL:
+    case MIRROR_HORIZ:
+    case MIRROR_VERT:
+    case ROTATE_180:
+    default: {
+      break;
+    }
+  }
+}
+
+/*
+ * Rotates the pixels to the correct orientation.
+ */
+
+void
+Image::rotatePixels(uint8_t* pixels, int width, int height, int channels,
+                    Orientation orientation) {
+  auto swapPixel = [channels](uint8_t* pixels, int src_idx, int dst_idx) {
+    uint8_t tmp;
+    for (int i = 0;  i < channels;  ++i) {
+      tmp = pixels[src_idx + i];
+      pixels[src_idx + i] = pixels[dst_idx + i];
+      pixels[dst_idx + i] = tmp;
+    }
+  };
+
+  auto mirrorHoriz = [swapPixel](uint8_t* pixels, int width, int height, int channels) {
+    int midX = width / 2;  // ok to truncate if odd, since we don't swap a center pixel
+    for (int y = 0;  y < height;  ++y) {
+      for (int x = 0;  x < midX;  ++x) {
+        int orig_idx = (y * width + x) * channels;
+        int new_idx = (y * width + width - 1 - x) * channels;
+        swapPixel(pixels, orig_idx, new_idx);
+      }
+    }
+  };
+
+  auto mirrorVert = [swapPixel](uint8_t* pixels, int width, int height, int channels) {
+    int midY = height / 2;  // ok to truncate if odd, since we don't swap a center pixel
+    for (int y = 0;  y < midY;  ++y) {
+      for (int x = 0;  x < width;  ++x) {
+        int orig_idx = (y * width + x) * channels;
+        int new_idx = ((height - y - 1) * width + x) * channels;
+        swapPixel(pixels, orig_idx, new_idx);
+      }
+    }
+  };
+
+  auto rotate90 = [](uint8_t* pixels, int width, int height, int channels) {
+    const int n_bytes = width * height * channels;
+    uint8_t *unrotated = new uint8_t[n_bytes];
+    if (!unrotated) {
+        return;
+    }
+    std::memcpy(unrotated, pixels, n_bytes);
+    for (int y = 0;  y < height;  ++y) {
+      for (int x = 0;  x < width ;  ++x) {
+        int orig_idx = (y * width + x) * channels;
+        int new_idx = (x * height + height - 1 - y) * channels;
+        std::memcpy(pixels + new_idx, unrotated + orig_idx, channels);
+      }
+    }
+  };
+
+  auto rotate270 = [](uint8_t* pixels, int width, int height, int channels) {
+    const int n_bytes = width * height * channels;
+    uint8_t *unrotated = new uint8_t[n_bytes];
+    if (!unrotated) {
+        return;
+    }
+    std::memcpy(unrotated, pixels, n_bytes);
+    for (int y = 0;  y < height;  ++y) {
+      for (int x = 0;  x < width ;  ++x) {
+        int orig_idx = (y * width + x) * channels;
+        int new_idx = ((width - 1 - x) * height + y) * channels;
+        std::memcpy(pixels + new_idx, unrotated + orig_idx, channels);
+      }
+    }
+  };
+
+  switch (orientation) {
+    case MIRROR_HORIZ:
+      mirrorHoriz(pixels, width, height, channels);
+      break;
+    case MIRROR_VERT:
+      mirrorVert(pixels, width, height, channels);
+      break;
+    case ROTATE_180:
+      mirrorHoriz(pixels, width, height, channels);
+      mirrorVert(pixels, width, height, channels);
+      break;
+    case ROTATE_90_CW:
+      rotate90(pixels, height, width, channels);  // swap w/h because we need orig w/h
+      break;
+    case ROTATE_270_CW:
+      rotate270(pixels, height, width, channels);  // swap w/h because we need orig w/h
+      break;
+    case MIRROR_HORIZ_AND_ROTATE_90_CW:
+      mirrorHoriz(pixels, height, width, channels);  // swap w/h because we need orig w/h
+      rotate90(pixels, height, width, channels);
+      break;
+    case MIRROR_HORIZ_AND_ROTATE_270_CW:
+      mirrorHoriz(pixels, height, width, channels);  // swap w/h because we need orig w/h
+      rotate270(pixels, height, width, channels);
+      break;
+    case NORMAL:
+    default:
+      break;
+  }
+}
+
 #endif /* HAVE_JPEG */
 
 #ifdef HAVE_RSVG
@@ -1185,26 +1470,24 @@ cairo_status_t
 Image::loadSVGFromBuffer(uint8_t *buf, unsigned len) {
   _is_svg = true;
 
-  cairo_status_t status;
-  GError *gerr = NULL;
-
-  if (NULL == (_rsvg = rsvg_handle_new_from_data(buf, len, &gerr))) {
+  if (NULL == (_rsvg = rsvg_handle_new_from_data(buf, len, nullptr))) {
     return CAIRO_STATUS_READ_ERROR;
   }
 
-  RsvgDimensionData *dims = new RsvgDimensionData();
-  rsvg_handle_get_dimensions(_rsvg, dims);
+  double d_width;
+  double d_height;
 
-  width = naturalWidth = dims->width;
-  height = naturalHeight = dims->height;
+  rsvg_handle_get_intrinsic_size_in_pixels(_rsvg, &d_width, &d_height);
 
-  status = renderSVGToSurface();
-  if (status != CAIRO_STATUS_SUCCESS) {
-    g_object_unref(_rsvg);
-    return status;
+  width = naturalWidth = d_width;
+  height = naturalHeight = d_height;
+
+  if (width <= 0 || height <= 0) {
+    this->errorInfo.set("Width and height must be set on the svg element");
+    return CAIRO_STATUS_READ_ERROR;
   }
 
-  return CAIRO_STATUS_SUCCESS;
+  return renderSVGToSurface();
 }
 
 /*
@@ -1223,16 +1506,19 @@ Image::renderSVGToSurface() {
   }
 
   cairo_t *cr = cairo_create(_surface);
-  cairo_scale(cr,
-    (double)width / (double)naturalWidth,
-    (double)height / (double)naturalHeight);
   status = cairo_status(cr);
   if (status != CAIRO_STATUS_SUCCESS) {
     g_object_unref(_rsvg);
     return status;
   }
 
-  gboolean render_ok = rsvg_handle_render_cairo(_rsvg, cr);
+  RsvgRectangle viewport = {
+    0, // x
+    0, // y
+    static_cast<double>(width),
+    static_cast<double>(height)
+  };
+  gboolean render_ok = rsvg_handle_render_document(_rsvg, cr, &viewport, nullptr);
   if (!render_ok) {
     g_object_unref(_rsvg);
     cairo_destroy(cr);

@@ -7,12 +7,16 @@ const path = require('path');
 // Import configuration and utilities
 const configReader = require('./utils/configReader');
 const pathValidator = require('./utils/pathValidator');
-
-// Import modules
-const { initializeDatabase, closeDatabase } = require('./config/database');
-const { initializeWebSocket } = require('./websocket/handler');
-const apiRoutes = require('./routes/api');
+const directoryManager = require('./utils/directoryManager');
+// Import handlers and routers
+const { initializeWebSocket, broadcast, getConnectedClients } = require('./websocket/handler');
+const { databaseManager, initializeDatabase, closeDatabase } = require('./utils/databaseManager');
 const { router: webhookRoutes, handleCustomWebhookPaths } = require('./routes/webhook');
+const createConfigRouter = require('./routes/config');
+const createAnalysisRouter = require('./routes/analysis');
+const createFacesRouter = require('./routes/faces');
+const { createStatsRouter } = require('./routes/stats');
+const uploadMiddleware = require('./middleware/upload');
 
 const app = express();
 const server = http.createServer(app);
@@ -107,14 +111,13 @@ const corsConfigs = {
       }
       
       // Allow localhost and development variants
-      if (origin.includes('localhost') || origin.includes('127.0.0.1') || 
-          origin.includes('192.168.') || origin.includes('10.0.') || 
-          origin.includes('172.16.')) {
+      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
         console.log(`✅ CORS allowed (dev): ${origin}`);
         return callback(null, true);
       }
       
-      console.log(`❌ CORS rejected: ${origin}`);
+      // Log CORS rejection for debugging
+      console.log(`❌ CORS rejected: ${origin}, allowed: ${corsOrigins.join(', ')}`);
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true
@@ -126,20 +129,21 @@ const corsConfig = corsConfigs[effectiveCorsMode] || corsConfigs.strict;
 app.use(cors({
   ...corsConfig,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Forwarded-For', 'X-Forwarded-Proto', 'X-Webhook-Token'],
-  exposedHeaders: ['X-Total-Count', 'X-Page', 'X-Per-Page']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'Content-Type', 'X-Request-ID']
 }));
 
-// Enhanced CORS middleware with immediate header setting
+// Middleware to handle OPTIONS requests for CORS preflight
 app.use((req, res, next) => {
-  const origin = req.get('origin');
+  // Set headers for all responses
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
   
-  // Set CORS headers immediately for permissive mode
-  if (effectiveCorsMode === 'permissive') {
-    const allowOrigin = origin || '*';
-    res.header('Access-Control-Allow-Origin', allowOrigin);
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Forwarded-For, X-Forwarded-Proto, X-Webhook-Token');
+  // Check if CORS is enabled
+  if (config.cors_enabled) {
+    const origin = req.headers.origin;
+    if (corsOrigins.includes(origin) || effectiveCorsMode !== 'strict') {
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    }
     
     // Handle preflight requests
     if (req.method === 'OPTIONS') {
@@ -157,65 +161,71 @@ app.use((req, res, next) => {
     console.log('Request headers:', {
       'x-forwarded-for': req.get('x-forwarded-for'),
       'x-forwarded-proto': req.get('x-forwarded-proto'),
-      'x-real-ip': req.get('x-real-ip'),
-      origin: req.get('origin'),
-      host: req.get('host')
+      'x-forwarded-host': req.get('x-forwarded-host'),
+      'host': req.get('host'),
+      'origin': req.get('origin')
     });
   }
   next();
 });
 
+// Middleware for parsing JSON bodies
 app.use(express.json());
 
-// Custom webhook path handler (must be before API routes)
+// Webhook Routes (must be registered before any other /api routes if path overlaps)
 app.use(handleCustomWebhookPaths);
 
 // API Routes
-app.use('/api', apiRoutes);
+const dependencies = {
+  databaseManager,
+  broadcast,
+  configReader,
+  directoryManager,
+  getConnectedClients,
+};
+
+const configRouter = createConfigRouter(dependencies);
+const analysisRouter = createAnalysisRouter(dependencies);
+const facesRouter = createFacesRouter(dependencies);
+const statsRouter = createStatsRouter(dependencies);
+
+app.use('/api/config', configRouter);
+app.use('/api/analysis', analysisRouter);
+app.use('/api/faces', facesRouter);
+app.use('/api/stats', statsRouter);
 
 // Webhook Routes
 app.use('/api/webhook', webhookRoutes);
 
-// Handle HTML page routes BEFORE static middleware
-app.get('/faces.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'faces.html'));
+// Serve static assets for frontend
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve index.html for the root path
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/persons.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'persons.html'));
-});
-
+// Serve settings.html for the settings path
 app.get('/settings.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings.html'));
 });
 
-// Serve static frontend files
-app.use(express.static(path.join(__dirname, 'public')));
-
 // Serve uploaded files using user-configured path with fallback
-const directoryManager = require('./utils/directoryManager');
 const uploadsPath = directoryManager.getEffectiveBasePath();
 console.log(`📁 Serving uploads from: ${uploadsPath}`);
 app.use('/uploads', express.static(uploadsPath));
 
 // Fallback route for SPA - serve index.html for any unmatched routes
-app.get('*', (req, res, next) => {
-  // Skip API routes and specific file extensions
-  if (req.path.startsWith('/api/') || 
-      req.path.startsWith('/uploads/') ||
-      req.path.endsWith('.js') || 
-      req.path.endsWith('.css') || 
-      req.path.endsWith('.png') || 
-      req.path.endsWith('.jpg') || 
-      req.path.endsWith('.ico') ||
-      req.path.endsWith('.svg')) {
-    return next();
+app.get('*', (req, res) => {
+  // Exclude API routes from SPA fallback
+  if (req.originalUrl.startsWith('/api/')) {
+    return res.status(404).json({ error: 'Not Found' });
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Health check endpoint for load balancers
-app.get('/health', (req, res) => {
+// Health check endpoint
+app.get('/api/health', (req, res) => {
   res.status(200).json({ 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
@@ -232,14 +242,13 @@ app.get('/api/debug/config', (req, res) => {
       configReader: configReader.getStatus(),
       pathValidator: pathValidator.getStatus(),
       configuration: configReader.getAll(),
-      environment: {
-        NODE_ENV: process.env.NODE_ENV,
-        WHORANG_ADDON_MODE: process.env.WHORANG_ADDON_MODE,
-        DATA_WRITABLE: process.env.DATA_WRITABLE,
-        PORT: process.env.PORT
-      }
+      cors: {
+        mode: effectiveCorsMode,
+        configuredMode: CORS_MODE,
+        origins: corsOrigins
+      },
+      publicUrl: PUBLIC_URL
     };
-    
     res.status(200).json(status);
   } catch (error) {
     console.error('Error getting configuration status:', error);
@@ -254,26 +263,14 @@ app.get('/api/debug/config', (req, res) => {
 // Directory status endpoint for debugging upload issues
 app.get('/api/debug/directories', (req, res) => {
   try {
-    const directoryManager = require('./utils/directoryManager');
-    const databaseManager = require('./utils/databaseManager');
-    const uploadMiddleware = require('./middleware/upload');
-    
     const status = {
       timestamp: new Date().toISOString(),
-      directoryManager: directoryManager.getStatus(),
-      databaseManager: databaseManager.getStatus(),
-      uploadMiddleware: uploadMiddleware.getStatus ? uploadMiddleware.getStatus() : 'Status not available',
-      environment: {
-        NODE_ENV: process.env.NODE_ENV,
-        UPLOADS_PATH: process.env.UPLOADS_PATH,
-        DATABASE_PATH: process.env.DATABASE_PATH,
-        DATA_UPLOADS_WRITABLE: process.env.DATA_UPLOADS_WRITABLE,
-        DATA_WRITABLE: process.env.DATA_WRITABLE
-      },
+      uploads: directoryManager.getStatus(),
+      database: databaseManager.getStatus(),
+      uploadMiddleware: uploadMiddleware.getStatus(),
       persistenceWarnings: []
     };
     
-    // Add persistence warnings
     const dbStatus = databaseManager.getStatus();
     if (!dbStatus.isPersistent) {
       status.persistenceWarnings.push({
@@ -339,7 +336,6 @@ server.listen(PORT, '127.0.0.1', () => {
     
     try {
       // Create symlink to database file for user access
-      const databaseManager = require('./utils/databaseManager');
       const dbPath = databaseManager.getEffectivePath();
       const dbSymlinkPath = '/addon_config/database/whorang.db';
       

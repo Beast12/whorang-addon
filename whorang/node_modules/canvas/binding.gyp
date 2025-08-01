@@ -57,7 +57,8 @@
     },
     {
       'target_name': 'canvas',
-      'include_dirs': ["<!(node -e \"require('nan')\")"],
+      'include_dirs': ["<!(node -p \"require('node-addon-api').include_dir\")"],
+      'defines': [ 'NAPI_DISABLE_CPP_EXCEPTIONS', 'NODE_ADDON_API_ENABLE_MAYBE' ],
       'sources': [
         'src/backend/Backend.cc',
         'src/backend/ImageBackend.cc',
@@ -74,7 +75,8 @@
         'src/Image.cc',
         'src/ImageData.cc',
         'src/init.cc',
-        'src/register_font.cc'
+        'src/register_font.cc',
+        'src/FontParser.cc'
       ],
       'conditions': [
         ['OS=="win"', {
@@ -142,7 +144,9 @@
           'cflags_cc!': ['-fno-exceptions']
         }],
         ['OS=="mac"', {
+          'cflags+': ['-fvisibility=hidden'],
           'xcode_settings': {
+            'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES', # -fvisibility=hidden
             'GCC_ENABLE_CPP_EXCEPTIONS': 'YES'
           }
         }],

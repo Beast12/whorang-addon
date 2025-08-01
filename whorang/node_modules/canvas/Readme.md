@@ -11,9 +11,15 @@ node-canvas is a [Cairo](http://cairographics.org/)-backed Canvas implementation
 $ npm install canvas
 ```
 
-By default, binaries for macOS, Linux and Windows will be downloaded. If you want to build from source, use `npm install --build-from-source` and see the **Compiling** section below.
+By default, pre-built binaries will be downloaded if you're on one of the following platforms:
+- macOS x86/64
+- macOS aarch64 (aka Apple silicon)
+- Linux x86/64 (glibc only)
+- Windows x86/64
 
-The minimum version of Node.js required is **6.0.0**.
+If you want to build from source, use `npm install --build-from-source` and see the **Compiling** section below.
+
+The minimum version of Node.js required is **18.12.0**.
 
 ### Compiling
 
@@ -23,7 +29,7 @@ For detailed installation information, see the [wiki](https://github.com/Automat
 
 OS | Command
 ----- | -----
-OS X | Using [Homebrew](https://brew.sh/):<br/>`brew install pkg-config cairo pango libpng jpeg giflib librsvg pixman`
+macOS | Using [Homebrew](https://brew.sh/):<br/>`brew install pkg-config cairo pango libpng jpeg giflib librsvg pixman python-setuptools`
 Ubuntu | `sudo apt-get install build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev`
 Fedora | `sudo yum install gcc-c++ cairo-devel pango-devel libjpeg-turbo-devel giflib-devel`
 Solaris | `pkgin install cairo pango pkg-config xproto renderproto kbproto xextproto`
@@ -78,6 +84,8 @@ This project is an implementation of the Web Canvas API and implements that API 
 * [createImageData()](#createimagedata)
 * [loadImage()](#loadimage)
 * [registerFont()](#registerfont)
+* [deregisterAllFonts()](#deregisterAllFonts)
+
 
 ### Non-standard APIs
 
@@ -155,7 +163,7 @@ const myimg = await loadImage('http://server.com/image.png')
 > registerFont(path: string, { family: string, weight?: string, style?: string }) => void
 > ```
 
-To use a font file that is not installed as a system font, use `registerFont()` to register the font with Canvas. *This must be done before the Canvas is created.*
+To use a font file that is not installed as a system font, use `registerFont()` to register the font with Canvas.
 
 ```js
 const { registerFont, createCanvas } = require('canvas')
@@ -169,6 +177,35 @@ ctx.fillText('Everyone hates this font :(', 250, 10)
 ```
 
 The second argument is an object with properties that resemble the CSS properties that are specified in `@font-face` rules. You must specify at least `family`. `weight`, and `style` are optional and default to `'normal'`.
+
+### deregisterAllFonts()
+
+> ```ts
+> deregisterAllFonts() => void
+> ```
+
+Use `deregisterAllFonts` to unregister all fonts that have been previously registered. This method is useful when you want to remove all registered fonts, such as when using the canvas in tests
+
+```ts
+const { registerFont, createCanvas, deregisterAllFonts } = require('canvas')
+
+describe('text rendering', () => {
+    afterEach(() => {
+        deregisterAllFonts();
+    })
+    it('should render text with Comic Sans', () => {
+        registerFont('comicsans.ttf', { family: 'Comic Sans' })
+
+        const canvas = createCanvas(500, 500)
+        const ctx = canvas.getContext('2d')
+        
+        ctx.font = '12px "Comic Sans"'
+        ctx.fillText('Everyone loves this font :)', 250, 10)
+        
+        // assertScreenshot()
+    })
+})
+```
 
 ### Image#src
 
@@ -477,6 +514,26 @@ ctx.addPage(400, 800)
 
 ctx.fillText('Hello World 2', 50, 80)
 ```
+
+It is possible to add hyperlinks using `.beginTag()` and `.endTag()`:
+
+```js
+ctx.beginTag('Link', "uri='https://google.com'")
+ctx.font = '22px Helvetica'
+ctx.fillText('Hello World', 50, 80)
+ctx.endTag('Link')
+```
+
+Or with a defined rectangle:
+
+```js
+ctx.beginTag('Link', "uri='https://google.com' rect=[50 80 100 20]")
+ctx.endTag('Link')
+```
+
+Note that the syntax for attributes is unique to Cairo. See [cairo_tag_begin](https://www.cairographics.org/manual/cairo-Tags-and-Links.html#cairo-tag-begin) for the full documentation.
+
+You can create areas on the canvas using the "cairo.dest" tag, and then link to them using the "Link" tag with the `dest=` attribute. You can also define PDF structure for accessibility by using tag names like "P", "H1", and "TABLE". The standard tags are defined in §14.8.4 of the [PDF 1.7](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/PDF32000_2008.pdf) specification.
 
 See also:
 

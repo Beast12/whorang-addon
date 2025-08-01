@@ -60,7 +60,10 @@ class DirectoryManager {
    * Ensure a directory exists with proper error handling and fallback
    */
   async ensureDirectory(relativePath = '') {
+    const isAddon = configReader.isHomeAssistantAddon();
+    const isDevelopment = process.env.NODE_ENV === 'development' || !isAddon;
     const primaryPath = path.join(this.primaryBasePath, relativePath);
+    const devFallbackPath = isDevelopment ? path.join(__dirname, '..', '.local', 'uploads', relativePath) : null;
     const fallbackPath = path.join(this.fallbackBasePath, relativePath);
     
     // Check cache first
@@ -86,10 +89,20 @@ class DirectoryManager {
       console.warn(`⚠️  Primary path failed (${primaryPath}): ${error.message}`);
       
       try {
-        // Fallback to app directory
+        // Try development fallback path first
+        if (devFallbackPath) {
+          await fs.mkdir(devFallbackPath, { recursive: true });
+          const testFile = path.join(devFallbackPath, '.write_test');
+          await fs.writeFile(testFile, 'test');
+          await fs.unlink(testFile);
+          effectivePath = devFallbackPath;
+          usedFallback = true;
+          console.log(`✅ Dev fallback directory ensured: ${devFallbackPath}`);
+          return { path: effectivePath, usedFallback };
+        }
+
+        // Then try the final container fallback path
         await fs.mkdir(fallbackPath, { recursive: true });
-        
-        // Test write permissions for fallback
         const testFile = path.join(fallbackPath, '.write_test');
         await fs.writeFile(testFile, 'test');
         await fs.unlink(testFile);
@@ -138,7 +151,10 @@ class DirectoryManager {
    * Synchronous version for compatibility with existing code
    */
   ensureDirectorySync(relativePath = '') {
+    const isAddon = configReader.isHomeAssistantAddon();
+    const isDevelopment = process.env.NODE_ENV === 'development' || !isAddon;
     const primaryPath = path.join(this.primaryBasePath, relativePath);
+    const devFallbackPath = isDevelopment ? path.join(__dirname, '..', '.local', 'uploads', relativePath) : null;
     const fallbackPath = path.join(this.fallbackBasePath, relativePath);
     
     // Check cache first
@@ -164,10 +180,23 @@ class DirectoryManager {
       console.warn(`⚠️  Primary path failed (sync, ${primaryPath}): ${error.message}`);
       
       try {
-        // Fallback to app directory
+        // Try development fallback path first
+        if (devFallbackPath) {
+          fsSync.mkdirSync(devFallbackPath, { recursive: true });
+          const testFile = path.join(devFallbackPath, '.write_test');
+          fsSync.writeFileSync(testFile, 'test');
+          fsSync.unlinkSync(testFile);
+          effectivePath = devFallbackPath;
+          usedFallback = true;
+          console.log(`✅ Dev fallback directory ensured (sync): ${devFallbackPath}`);
+          const result = { path: effectivePath, usedFallback };
+          this.directoryCache.set(cacheKey, result);
+          return result;
+        }
+
+        // Then try the final container fallback path
         fsSync.mkdirSync(fallbackPath, { recursive: true });
         
-        // Test write permissions for fallback
         const testFile = path.join(fallbackPath, '.write_test');
         fsSync.writeFileSync(testFile, 'test');
         fsSync.unlinkSync(testFile);
