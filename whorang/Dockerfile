@@ -27,7 +27,6 @@ RUN apk add --no-cache --virtual .build-dependencies \
         freetype-dev \
     && apk add --no-cache \
         bash \
-        su-exec \
         nodejs \
         npm \
         nginx \
@@ -56,24 +55,15 @@ RUN npm install --unsafe-perm
 RUN apk del --no-cache --purge .build-dependencies \
     && rm -rf /root/.npm /tmp/*
 
-# 5. Set ownership and permissions.
-#    Create a non-root user and ensure all files are owned by it.
-#    This is critical for security and Home Assistant compatibility.
-RUN mkdir -p /data /config /var/lib/nginx /var/log/nginx /run/nginx && \
-    addgroup -S -g 1000 whorun && \
-    adduser -S -u 1000 -G whorun whorun && \
-    chown -R whorun:whorun /app /data /config /var/lib/nginx /var/log/nginx /run/nginx /tmp
+# 5. Copy root filesystem for s6-overlay
+COPY rootfs /
 
-# 6. Ensure scripts are executable
-RUN chmod +x /app/docker-entrypoint.sh
-
-# 7. Set environment variables
+# 6. Set environment variables
 ENV NODE_ENV=production
 ENV SUPERVISOR_TOKEN=$SUPERVISOR_TOKEN
 ENV WHORANG_ADDON_MODE=true
 
-# 8. Expose the application port
+# 7. Expose the application port
 EXPOSE 3001
 
-
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# The base image provides the s6-overlay entrypoint.

@@ -33,12 +33,18 @@ cd /app || exit 1
 
 log_info "Starting Node.js backend..."
 
+# ==============================================================================
+# Home Assistant Add-on: WhoRang - Node.js Service
+# ==============================================================================
+
+echo "Starting WhoRang backend..."
+
 # Logic to handle HA Add-on mode vs. Standalone mode
 if [ "${WHORANG_ADDON_MODE}" = "true" ]; then
     log_info "Running in Home Assistant add-on mode."
     # In HA mode, permissions are managed by the OS, so we run as the default user.
     # The init script has already set necessary permissions.
-    exec node server.js
+    exec s6-setuidgid whorun node server.js
 else
     log_info "Running in standalone mode."
     # In standalone mode, we ensure the 'node' user owns the files and run the process as that user.
