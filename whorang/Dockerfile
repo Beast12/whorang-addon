@@ -58,7 +58,8 @@ RUN apk del --no-cache --purge .build-dependencies \
 # 5. Set ownership and permissions.
 #    Create a non-root user and ensure all files are owned by it.
 #    This is critical for security and Home Assistant compatibility.
-RUN addgroup -S -g 1000 whorun && \
+RUN mkdir -p /data /config /var/lib/nginx /var/log/nginx /run/nginx && \
+    addgroup -S -g 1000 whorun && \
     adduser -S -u 1000 -G whorun whorun && \
     chown -R whorun:whorun /app /data /config /var/lib/nginx /var/log/nginx /run/nginx /tmp
 

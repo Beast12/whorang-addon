@@ -2,7 +2,13 @@
 
 All notable changes to this add-on will be documented in this file.
 
-## [2.0.20] - 2025-07-31
+## [2.0.21] - 2025-08-01
+
+### :bug: Fixes
+
+- **Docker Build**: Fixed a critical build failure by creating `/data` and `/config` directories before attempting to change their ownership in the `Dockerfile`.
+
+## [2.0.20] - 2025-07-31 - FAILED BUILD
 
 ### :rocket: Features & Fixes
 
