@@ -11,7 +11,7 @@ const directoryManager = require('./utils/directoryManager');
 // Import handlers and routers
 const { initializeWebSocket, broadcast, getConnectedClients } = require('./websocket/handler');
 const { databaseManager, initializeDatabase, closeDatabase } = require('./utils/databaseManager');
-const { router: webhookRoutes, handleCustomWebhookPaths } = require('./routes/webhook');
+const createWebhookRouter = require('./routes/webhook');
 const createConfigRouter = require('./routes/config');
 const createAnalysisRouter = require('./routes/analysis');
 const createFacesRouter = require('./routes/faces');
@@ -172,6 +172,10 @@ app.use((req, res, next) => {
 // Middleware for parsing JSON bodies
 app.use(express.json());
 
+// Initialize routes that require the uploads path
+const uploadsPath = directoryManager.getEffectiveBasePath();
+const { router: webhookRoutes, handleCustomWebhookPaths } = createWebhookRouter(uploadsPath);
+
 // Webhook Routes (must be registered before any other /api routes if path overlaps)
 app.use(handleCustomWebhookPaths);
 
@@ -210,8 +214,7 @@ app.get('/settings.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'settings.html'));
 });
 
-// Serve uploaded files using user-configured path with fallback
-const uploadsPath = directoryManager.getEffectiveBasePath();
+// Serve static files from the effective uploads directory
 console.log(`📁 Serving uploads from: ${uploadsPath}`);
 app.use('/uploads', express.static(uploadsPath));
 

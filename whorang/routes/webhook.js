@@ -6,7 +6,9 @@ const { broadcast } = require('../websocket/handler');
 const faceProcessingService = require('../services/faceProcessing');
 
 const router = express.Router();
-const upload = multer({ dest: 'uploads/' });
+
+// This will be initialized within the exported function
+let upload;
 
 // Parse weather data from JSON string
 function parseWeatherData(weatherString) {
@@ -249,7 +251,12 @@ function handleCustomWebhookPaths(req, res, next) {
   next();
 }
 
-module.exports = {
-  router,
-  handleCustomWebhookPaths
+module.exports = (uploadsPath) => {
+  // Initialize multer with the dynamically provided uploads path
+  upload = multer({ dest: uploadsPath });
+
+  return {
+    router,
+    handleCustomWebhookPaths
+  };
 };

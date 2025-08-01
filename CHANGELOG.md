@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Version**: Bumped to v2.0.23 to reflect the latest backend fixes.
 
+## [2.0.27] - 2025-08-01
+
+### Fixed
+- **Runtime Crash**: Resolved a critical `EACCES: permission denied` error at startup. The `multer` middleware was using a hardcoded, inaccessible path (`/app/uploads`). The code has been refactored to correctly use the user-configured uploads path from the central `directoryManager`, ensuring file uploads are saved to the proper `/data/uploads` directory.
+
 ## [2.0.26] - 2025-08-01
 
 ### Fixed
