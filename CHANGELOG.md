@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Version**: Bumped to v2.0.23 to reflect the latest backend fixes.
 
+## [2.0.25] - 2025-08-01
+
+### Fixed
+- **Container Startup**: Resolved a critical "Permission denied" error by making all `s6-overlay` initialization and service scripts executable. This allows the container to start correctly.
+
 ## [2.0.24] - 2025-08-01
 
 ### Changed

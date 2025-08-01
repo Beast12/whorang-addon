@@ -55,8 +55,9 @@ RUN npm install --unsafe-perm
 RUN apk del --no-cache --purge .build-dependencies \
     && rm -rf /root/.npm /tmp/*
 
-# 5. Copy root filesystem for s6-overlay
+# 5. Copy root filesystem for s6-overlay and set permissions
 COPY rootfs /
+RUN chmod +x -R /etc/cont-init.d /etc/services.d
 
 # 6. Set environment variables
 ENV NODE_ENV=production
