@@ -50,51 +50,44 @@ class DatabaseManager {
    * Get the effective database path with fallback support
    */
   getEffectiveDatabasePath() {
-    try {
-      // Test if we can write to the primary path directory
-      const primaryDir = path.dirname(this.primaryDbPath);
-      
-      // Check if directory exists and is writable
-      if (fsSync.existsSync(primaryDir)) {
-        try {
-          // Test write permissions
-          const testFile = path.join(primaryDir, '.db_write_test');
-          fsSync.writeFileSync(testFile, 'test');
-          fsSync.unlinkSync(testFile);
-          
-          console.log(`✅ Database will use primary path: ${this.primaryDbPath}`);
-          return this.primaryDbPath;
-        } catch (writeError) {
-          console.warn(`⚠️  Primary database directory not writable: ${writeError.message}`);
-        }
-      } else {
-        console.warn(`⚠️  Primary database directory doesn't exist: ${primaryDir}`);
-      }
-      
-      // Fallback to app directory
-      const fallbackDir = path.dirname(this.fallbackDbPath);
+    const isAddon = configReader.isAddonMode();
+    const pathsToTry = [
+      this.primaryDbPath,
+      // In addon mode, the correct fallback is always in /data
+      isAddon ? '/data/whorang.db' : null,
+      // For standalone, or if /data fails, fallback to /app (non-persistent)
+      this.fallbackDbPath,
+    ].filter(p => p && typeof p === 'string'); // Filter out null/invalid entries
+
+    // Create a unique set of paths to try
+    const uniquePaths = [...new Set(pathsToTry)];
+
+    for (const dbPath of uniquePaths) {
       try {
-        // Ensure fallback directory exists
-        fsSync.mkdirSync(fallbackDir, { recursive: true });
-        
+        const dir = path.dirname(dbPath);
+
+        // Ensure the directory exists
+        fsSync.mkdirSync(dir, { recursive: true });
+
         // Test write permissions
-        const testFile = path.join(fallbackDir, '.db_write_test');
+        const testFile = path.join(dir, '.db_write_test');
         fsSync.writeFileSync(testFile, 'test');
         fsSync.unlinkSync(testFile);
-        
-        console.log(`✅ Database will use fallback path: ${this.fallbackDbPath}`);
-        console.warn(`⚠️  WARNING: Database is using temporary storage - data will be lost on restart!`);
-        return this.fallbackDbPath;
-      } catch (fallbackError) {
-        console.error(`❌ Both primary and fallback database paths failed:`);
-        console.error(`  Primary: ${primaryDir} - not accessible`);
-        console.error(`  Fallback: ${fallbackError.message}`);
-        throw new Error('Unable to find writable location for database');
+
+        console.log(`✅ Database path validated. Using: ${dbPath}`);
+        if (dbPath !== this.primaryDbPath) {
+          console.warn(`⚠️  Using fallback database path. Check your configuration if this is not intended.`);
+        }
+        return dbPath;
+      } catch (error) {
+        console.warn(`⚠️  Could not use path '${dbPath}': ${error.message}`);
       }
-    } catch (error) {
-      console.error(`❌ Database path resolution failed: ${error.message}`);
-      throw error;
     }
+
+    // If all paths fail, throw a definitive error
+    const error = new Error('Unable to find a writable location for the database.');
+    console.error(`❌ Database path resolution failed. Checked: ${uniquePaths.join(', ')}`);
+    throw error;
   }
 
   /**
