@@ -7,42 +7,35 @@ ARG BUILD_ARCH
 
 WORKDIR /app
 
-# 1. Install build-time dependencies, runtime dependencies, and necessary packages for native modules.
-#    Using --virtual .build-dependencies allows us to easily remove them later.
+# 1. Install all dependencies in a single layer to optimize the build.
 RUN apk add --no-cache --virtual .build-dependencies \
-        build-base \
-        linux-headers \
-        python3-dev \
-        git \
-        make \
-        g++ \
-        cairo-dev \
-        jpeg-dev \
-        pango-dev \
-        sqlite-dev \
-        musl-dev \
-        giflib-dev \
-        pixman-dev \
-        pangomm-dev \
-        libjpeg-turbo-dev \
-        freetype-dev \
+    # For compiling native modules
+    g++ \
+    make \
+    python3 \
+    git \
+    # Dev libraries for native modules (canvas, sharp, etc.)
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    giflib-dev \
+    librsvg-dev \
     && apk add --no-cache \
-        bash \
-        nodejs \
-        npm \
-        nginx \
-        sqlite \
-        curl \
-        gettext \
-        jq \
-        cairo \
-        jpeg \
-        pango \
-        giflib \
-        pixman \
-        pangomm \
-        libjpeg-turbo \
-        freetype
+    # For running the addon
+    nodejs-current \
+    npm \
+    bash \
+    nginx \
+    sqlite \
+    gettext \
+    jq \
+    curl \
+    # Runtime libraries for native modules
+    cairo \
+    jpeg \
+    pango \
+    giflib \
+    librsvg
 
 # 2. Copy application files
 COPY . .
