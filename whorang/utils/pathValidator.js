@@ -116,27 +116,36 @@ class PathValidator {
    */
   testWritePermissions(targetPath, type = 'directory') {
     try {
-      let testPath;
-      
-      if (type === 'directory') {
-        if (!fs.existsSync(targetPath)) {
+      const dirToTest = type === 'directory' ? targetPath : path.dirname(targetPath);
+
+      // Find the deepest existing parent directory to check for write permissions
+      let parentDir = dirToTest;
+      while (!fs.existsSync(parentDir)) {
+        const nextParent = path.dirname(parentDir);
+        if (nextParent === parentDir) {
+          // We've reached the root ('/' or 'C:\') and it doesn't exist, which is impossible.
+          // This indicates a problem, so we fail safely.
           return false;
         }
-        testPath = path.join(targetPath, '.write_test_' + Date.now());
-      } else {
-        // For files, test the parent directory
-        const parentDir = path.dirname(targetPath);
-        if (!fs.existsSync(parentDir)) {
-          return false;
-        }
-        testPath = path.join(parentDir, '.write_test_' + Date.now());
+        parentDir = nextParent;
       }
 
-      // Try to write a test file
-      fs.writeFileSync(testPath, 'test');
-      fs.unlinkSync(testPath);
+      // 1. Check if the deepest existing parent is writable.
+      fs.accessSync(parentDir, fs.constants.W_OK);
+
+      // 2. If the parent is writable, we can now safely attempt to create the full path.
+      if (!fs.existsSync(dirToTest)) {
+        fs.mkdirSync(dirToTest, { recursive: true });
+      }
+
+      // 3. Finally, perform the write test in the target directory.
+      const testFile = path.join(dirToTest, '.write_test_' + Date.now());
+      fs.writeFileSync(testFile, 'test');
+      fs.unlinkSync(testFile);
+
       return true;
     } catch (error) {
+      // If any step fails (access, mkdir, write, unlink), we don't have sufficient permissions.
       return false;
     }
   }

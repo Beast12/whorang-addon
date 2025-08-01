@@ -1,13 +1,20 @@
-const aiProviders = require('../services/aiProviders');
-const faceProcessing = require('../services/faceProcessing');
+
 
 class AnalysisController {
+  constructor(databaseManager, broadcast) {
+    this.databaseManager = databaseManager;
+    this.broadcast = broadcast;
+    // Bind methods to ensure 'this' context is correct when passed as callbacks
+    this.triggerAnalysis = this.triggerAnalysis.bind(this);
+    this.getAnalysisStatus = this.getAnalysisStatus.bind(this);
+  }
+
   /**
    * Trigger AI analysis for a visitor
    * POST /api/analysis/trigger
    */
-  static async triggerAnalysis(req, res) {
-    const db = require('../config/database').getDatabase();
+    async triggerAnalysis(req, res) {
+    const db = this.databaseManager.getDatabase();
     
     try {
       const { visitor_id, ai_prompt_template, custom_ai_prompt, enable_weather_context } = req.body;
@@ -71,7 +78,7 @@ class AnalysisController {
       // Process analysis asynchronously with AI template configuration
       setImmediate(async () => {
         try {
-          await AnalysisController._processVisitorAnalysis(targetVisitor, aiTemplateConfig);
+          await this._processVisitorAnalysis(targetVisitor, aiTemplateConfig);
         } catch (error) {
           console.error(`Failed to process analysis for visitor ${targetVisitor.id}:`, error);
         }
@@ -93,8 +100,8 @@ class AnalysisController {
    * @param {Object} aiTemplateConfig - AI template configuration
    * @returns {Promise<Object>} Analysis result
    */
-  static async processAnalysisDirectly(visitor_id, aiTemplateConfig = null) {
-    const db = require('../config/database').getDatabase();
+    async processAnalysisDirectly(visitor_id, aiTemplateConfig = null) {
+    const db = this.databaseManager.getDatabase();
     
     try {
       let targetVisitor;
@@ -141,8 +148,8 @@ class AnalysisController {
    * Process AI analysis for a visitor
    * @private
    */
-  static async _processVisitorAnalysis(visitor, aiTemplateConfig = null) {
-    const db = require('../config/database').getDatabase();
+    async _processVisitorAnalysis(visitor, aiTemplateConfig = null) {
+    const db = this.databaseManager.getDatabase();
     
     try {
       console.log(`Starting AI analysis for visitor ${visitor.id}`);
@@ -219,9 +226,8 @@ class AnalysisController {
       console.log(`Face processing for visitor ${visitor.id} is handled separately by webhook handler`);
       
       // Send WebSocket notification about analysis completion
-      const WebSocketHandler = require('../websocket/handler');
-      if (WebSocketHandler.broadcast) {
-        WebSocketHandler.broadcast({
+      if (this.broadcast) {
+        this.broadcast({
           type: 'ai_analysis_complete',
           data: {
             visitor_id: visitor.id,
@@ -260,9 +266,8 @@ class AnalysisController {
       failStmt.run(visitor.id);
       
       // Send error notification via WebSocket
-      const WebSocketHandler = require('../websocket/handler');
-      if (WebSocketHandler.broadcast) {
-        WebSocketHandler.broadcast({
+      if (this.broadcast) {
+        this.broadcast({
           type: 'ai_analysis_error',
           data: {
             visitor_id: visitor.id,
@@ -277,8 +282,8 @@ class AnalysisController {
    * Get analysis status for a visitor
    * GET /api/analysis/status/:visitor_id
    */
-  static async getAnalysisStatus(req, res) {
-    const db = require('../config/database').getDatabase();
+    async getAnalysisStatus(req, res) {
+    const db = this.databaseManager.getDatabase();
     
     try {
       const { visitor_id } = req.params;

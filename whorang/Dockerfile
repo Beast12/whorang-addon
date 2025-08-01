@@ -13,8 +13,13 @@ RUN apk add --no-cache \
     jq \
     s6-overlay
 
-# Copy root filesystem
+# Copy root filesystem and set permissions
 COPY rootfs/ / 
+RUN chmod +x -R /etc/cont-init.d /etc/services.d 
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY backend.conf /etc/nginx/conf.d/backend.conf 
 
 # Setup application
 WORKDIR /app

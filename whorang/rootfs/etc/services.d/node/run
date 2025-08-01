@@ -4,4 +4,5 @@
 export NODE_PATH=/usr/lib/node_modules
 
 # Start the Node.js application
-exec node /app/server.js
+# Start the Node.js application as the 'nobody' user for security
+exec s6-setuidgid nobody node /app/server.js

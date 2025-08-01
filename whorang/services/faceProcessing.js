@@ -2,30 +2,16 @@
 const { createAIProvider } = require('./aiProviders');
 const { broadcast } = require('../websocket/handler');
 
-// Use the new Sharp-based face cropping service for precise cropping
-let faceCroppingService;
-try {
-  faceCroppingService = require('./faceCroppingServiceSharp');
-  console.log('Using Sharp-based face cropping service for precise cropping');
-} catch (error) {
-  console.log('Sharp not available, falling back to canvas-based service:', error.message);
-  try {
-    faceCroppingService = require('./faceCroppingService');
-    console.log('Using full face cropping service with canvas');
-  } catch (canvasError) {
-    console.log('Canvas not available, using lite face cropping service:', canvasError.message);
-    faceCroppingService = require('./faceCroppingServiceLite');
-  }
-}
-
 class FaceProcessingService {
-  constructor() {
+  constructor(databaseManager, faceCroppingService) {
+    this.databaseManager = databaseManager;
+    this.faceCroppingService = faceCroppingService;
     this.processingQueue = [];
     this.isProcessing = false;
   }
 
   async processVisitorEvent(eventId, imageUrl) {
-    const db = require('../config/database').getDatabase();
+    const db = this.databaseManager.getDatabase();
     
     try {
       // CRITICAL FIX: Check if this event has already been processed to prevent duplicates
@@ -259,7 +245,7 @@ class FaceProcessingService {
   }
 
   async matchFaceToPersons(embedding, threshold) {
-    const db = require('../config/database').getDatabase();
+    const db = this.databaseManager.getDatabase();
     
     try {
       // Get all existing face embeddings from detected_faces table
@@ -302,7 +288,7 @@ class FaceProcessingService {
   }
 
   async assignFaceToPerson(faceId, personId, confidence, isManual = false) {
-    const db = require('../config/database').getDatabase();
+    const db = this.databaseManager.getDatabase();
     
     try {
       // Update the detected face with person assignment
@@ -330,7 +316,7 @@ class FaceProcessingService {
   }
 
   async updatePersonStats(personId) {
-    const db = require('../config/database').getDatabase();
+    const db = this.databaseManager.getDatabase();
     
     try {
       // Count faces assigned to this person
@@ -365,11 +351,11 @@ class FaceProcessingService {
 
   calculateSimilarity(encoding1, encoding2) {
     // Use the face cropping service's similarity calculation
-    return faceCroppingService.calculateEmbeddingSimilarity(encoding1, encoding2);
+    return this.faceCroppingService.calculateEmbeddingSimilarity(encoding1, encoding2);
   }
 
   async labelVisitorEvent(eventId, personId, confidence) {
-    const db = require('../config/database').getDatabase();
+    const db = this.databaseManager.getDatabase();
     
     try {
       // Check if labeling already exists
@@ -392,7 +378,7 @@ class FaceProcessingService {
   }
 
   async trainPersonWithImages(personId, imageUrls) {
-    const db = require('../config/database').getDatabase();
+    const db = this.databaseManager.getDatabase();
     
     try {
       // Get face recognition config
@@ -460,7 +446,4 @@ class FaceProcessingService {
   }
 }
 
-// Create singleton instance
-const faceProcessingService = new FaceProcessingService();
-
-module.exports = faceProcessingService;
+module.exports = FaceProcessingService;

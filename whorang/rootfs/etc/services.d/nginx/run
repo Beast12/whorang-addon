@@ -1,17 +1,27 @@
 #!/usr/bin/with-contenv bash
 
-# Start nginx in the foreground for s6-overlay supervision
-exec /usr/sbin/nginx -g 'daemon off;'
-    sed -i '/allow 172\.30\.32\.2;/,/# Note: In standalone mode, run\.sh will replace this with/c\
-    # Standalone mode - allow all access\
-    allow all;' /etc/nginx/conf.d/default.conf 2>/dev/null || true
+# Exit immediately if a command exits with a non-zero status.
+set -e
+
+# In standalone mode, we need to relax the IP restrictions.
+# The WHORANG_ADDON_MODE variable is set by the 01-whorang-init script.
+if [ "${WHORANG_ADDON_MODE}" = "false" ]; then
+    echo "[nginx-run] Standalone mode detected. Allowing all IPs."
+    # This sed command replaces the block of 'allow' rules with 'allow all;'
+    # It targets backend.conf, which is the correct file.
+    sed -i '/allow 172\.30\.32\.2;/,/allow ::1;/c\    allow all;' /etc/nginx/conf.d/backend.conf
 fi
 
-# Validate nginx configuration
-if ! nginx -t; then
-    log_error "Nginx configuration test failed"
+# Always validate the final nginx configuration before starting.
+echo "[nginx-run] Validating nginx configuration..."
+if ! /usr/sbin/nginx -t; then
+    echo "[nginx-run] Nginx configuration test failed. Exiting."
     exit 1
 fi
+echo "[nginx-run] Nginx configuration is valid."
 
-# Start nginx in foreground mode
-exec nginx -g "error_log /dev/stderr info; daemon off; master_process off;"
+# Start nginx in the foreground for s6-overlay supervision.
+# This is the proper way to run nginx under s6.
+# We pass necessary directives to prevent daemonization and log to stderr.
+echo "[nginx-run] Starting nginx..."
+exec /usr/sbin/nginx -g "daemon off;"

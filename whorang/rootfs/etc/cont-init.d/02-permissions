@@ -1,0 +1,5 @@
+#!/usr/bin/with-contenv bash
+
+# Set ownership of the data directory to the user running the node service
+echo "Fixing permissions for /data..."
+chown -R nobody:nobody /data

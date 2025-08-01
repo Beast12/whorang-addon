@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.22] - 2025-08-01
+
+### Added
+- **Dependency Injection**: Implemented full dependency injection across the backend, refactoring services and controllers into factory functions or classes that accept injected dependencies. This improves modularity, testability, and maintainability.
+
+### Fixed
+- **Startup Stability**: Resolved all `EACCES` permission warnings during local development by centralizing path validation and gracefully handling fallback paths.
+- **Test Suite Failures**: Debugged and fixed a series of cascading errors in the `local_test.sh` script, including:
+  - A `404 Not Found` error caused by a broken nginx run script.
+  - A `Connection reset by peer` error caused by a missing nginx configuration file in the Docker image.
+  - A `500 Internal Server Error` caused by incorrect Express.js routing for the `/api/health` endpoint.
+- **Configuration Handling**: Ensured asynchronous initialization is properly handled for all components, resolving startup errors related to module loading and configuration initialization.
+
+### Changed
+- **Version**: Bumped to v2.0.19 to reflect the significant backend refactoring and bug fixes.
+
 ## [2.0.18] - 2025-07-29
 
 ### Fixed

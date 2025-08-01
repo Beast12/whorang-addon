@@ -1,37 +1,32 @@
 const Database = require('better-sqlite3');
 const { v4: uuidv4 } = require('uuid');
-const databaseManager = require('../utils/databaseManager');
-
 let db;
 
-function initializeDatabase() {
+function initializeDatabase(databaseManager) {
+  if (db) {
+    return db;
+  }
+
   try {
-    // Use DatabaseManager to get the effective database path with fallback support
     const effectiveDatabasePath = databaseManager.getEffectiveDatabasePath();
     const dbStatus = databaseManager.getStatus();
-    
+
     console.log('Database configuration:');
     console.log(`  Effective path: ${effectiveDatabasePath}`);
     console.log(`  Is persistent: ${dbStatus.isPersistent}`);
     if (dbStatus.warning) {
       console.warn(`  ⚠️  ${dbStatus.warning}`);
     }
-    
+
     db = new Database(effectiveDatabasePath);
     console.log('✅ Connected to SQLite database');
-    
+
     createTables();
     initializeWebhookConfig();
+
     return db;
   } catch (err) {
-    console.error('❌ Error opening database:', err);
-    
-    // Try to provide helpful error information
-    const dbStatus = databaseManager.getStatus();
-    if (dbStatus.error) {
-      console.error('Database manager error:', dbStatus.error);
-    }
-    
+    console.error('❌ Database initialization failed:', err.message);
     console.error('Database troubleshooting:');
     console.error('  1. Check if /data directory is mounted and writable');
     console.error('  2. Verify Home Assistant addon volume configuration');

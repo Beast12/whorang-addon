@@ -2,42 +2,25 @@ const fs = require('fs').promises;
 const path = require('path');
 const sharp = require('sharp');
 const coordinateCorrection = require('./coordinateCorrection');
-const uploadPaths = require('../utils/uploadPaths');
+
 
 class FaceCroppingServiceSharp {
-  constructor() {
-    // Import DirectoryManager for robust directory handling
-    this.directoryManager = require('../utils/directoryManager');
-    
-    this.uploadsDir = uploadPaths.getBaseUploadPath();
-    this.facesDir = uploadPaths.getFacesUploadPath();
-    this.thumbnailsDir = uploadPaths.getThumbnailsUploadPath();
-    
-    // Ensure directories exist with DirectoryManager integration
-    this.ensureDirectories();
+  constructor(directoryManager) {
+    this.directoryManager = directoryManager;
+    this.sharp = require('sharp');
+    this.facesDir = null;
+    this.thumbnailsDir = null;
+    this.uploadsDir = null;
   }
 
-  async ensureDirectories() {
-    try {
-      // Use DirectoryManager for robust directory creation
-      await this.directoryManager.ensureDirectory();
-      await this.directoryManager.ensureDirectory('faces');
-      await this.directoryManager.ensureDirectory('thumbnails');
-      
-      // Update paths to use DirectoryManager results
-      this.uploadsDir = uploadPaths.getBaseUploadPath();
-      this.facesDir = uploadPaths.getFacesUploadPath();
-      this.thumbnailsDir = uploadPaths.getThumbnailsUploadPath();
-      
-      // Verify directories were created and are writable
-      await this.validateDirectories();
-      
-      console.log('✅ Sharp face cropping directories ensured and validated via DirectoryManager');
-    } catch (error) {
-      console.error('❌ CRITICAL ERROR: Failed to create Sharp face cropping directories:', error);
-      throw error; // Re-throw to prevent silent failures
-    }
+  async initialize() {
+    this.uploadsDir = this.directoryManager.getPath('base');
+    this.facesDir = this.directoryManager.getPath('faces');
+    this.thumbnailsDir = this.directoryManager.getPath('thumbnails');
+
   }
+
+
 
   async validateDirectories() {
     const directories = [
@@ -634,7 +617,4 @@ class FaceCroppingServiceSharp {
   }
 }
 
-// Create singleton instance
-const faceCroppingServiceSharp = new FaceCroppingServiceSharp();
-
-module.exports = faceCroppingServiceSharp;
+module.exports = FaceCroppingServiceSharp;
