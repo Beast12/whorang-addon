@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Version**: Bumped to v2.0.23 to reflect the latest backend fixes.
 
+## [2.0.28] - 2025-08-01
+
+### Fixed
+- **Critical Startup Crash**: Fixed a `TypeError` that caused the application to crash immediately on startup. The webhook router was being initialized before its `multer` dependency, leading to a fatal error. The module has been correctly refactored to ensure all middleware is initialized before being used.
+
 ## [2.0.27] - 2025-08-01
 
 ### Fixed
