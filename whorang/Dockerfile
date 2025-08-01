@@ -19,6 +19,7 @@ RUN apk add --no-cache --virtual .build-dependencies \
         cairo-dev \
         jpeg-dev \
         pango-dev \
+        sqlite-dev \
         musl-dev \
         giflib-dev \
         pixman-dev \

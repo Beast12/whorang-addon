@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Version**: Bumped to v2.0.23 to reflect the latest backend fixes.
 
+## [2.0.30] - 2025-08-01
+
+### Fixed
+- **Native Module Build Failure**: Fixed a critical and persistent `Error: Could not locate the bindings file` for `better-sqlite3`. The `Dockerfile` was missing the `sqlite-dev` package, which is essential for compiling the native module. This has been added to the build dependencies.
+
 ## [2.0.29] - 2025-08-01
 
 ### Fixed
