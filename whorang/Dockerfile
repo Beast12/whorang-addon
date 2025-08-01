@@ -58,12 +58,13 @@ RUN apk del --no-cache --purge .build-dependencies \
 # 5. Set ownership and permissions.
 #    Create a non-root user and ensure all files are owned by it.
 #    This is critical for security and Home Assistant compatibility.
-RUN addgroup -S -g 1000 whorun && \
+RUN mkdir -p /data /config /var/lib/nginx /var/log/nginx /run/nginx && \
+    addgroup -S -g 1000 whorun && \
     adduser -S -u 1000 -G whorun whorun && \
     chown -R whorun:whorun /app /data /config /var/lib/nginx /var/log/nginx /run/nginx /tmp
 
 # 6. Ensure scripts are executable
-RUN chmod +x /app/docker-entrypoint.sh /app/run.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # 7. Set environment variables
 ENV NODE_ENV=production
@@ -73,7 +74,5 @@ ENV WHORANG_ADDON_MODE=true
 # 8. Expose the application port
 EXPOSE 3001
 
-# 9. Switch to the non-root user
-USER whorun
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
