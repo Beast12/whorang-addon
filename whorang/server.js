@@ -23,9 +23,10 @@ const { createWebhookRouter } = require('./routes/webhook');
 const createFacesRouter = require('./routes/faces');
 const createAnalysisRouter = require('./routes/analysis');
 const createConfigRouter = require('./routes/config');
+const { createStatsRouter } = require('./routes/stats');
 
 // Import WebSocket handler
-const { initializeWebSocket, broadcast } = require('./websocket/handler');
+const { initializeWebSocket, broadcast, getConnectedClients } = require('./websocket/handler');
 
 const app = express();
 const server = http.createServer(app);
@@ -73,6 +74,7 @@ async function startServer() {
       broadcast,
       configReader,
       directoryManager,
+      getConnectedClients,
     };
 
     // Get configuration from user settings
@@ -108,6 +110,7 @@ async function startServer() {
     app.use('/api', createFacesRouter(dependencies));
     app.use('/api', createAnalysisRouter(dependencies));
     app.use('/api', createConfigRouter(dependencies));
+    app.use('/api/stats', createStatsRouter(dependencies));
 
     // Health check endpoint
     app.get('/api/health', (req, res) => {
