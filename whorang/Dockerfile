@@ -1,72 +1,71 @@
-ARG BUILD_FROM
+# Use the official Node.js 20 LTS on Alpine as the base image
+# This provides a stable, consistent environment for building native modules.
+FROM node:20-alpine
 
-# Use a single stage build based on the Home Assistant base image
-FROM $BUILD_FROM
-
-ARG BUILD_ARCH
-
+# Set the working directory
 WORKDIR /app
 
-# 1. Install all dependencies in a single layer to optimize the build.
-RUN apk add --no-cache --virtual .build-dependencies \
-    # For compiling native modules
-    g++ \
-    make \
-    python3 \
-    git \
-    # Dev libraries for native modules (canvas, sharp, etc.)
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    giflib-dev \
-    librsvg-dev \
-    && apk add --no-cache \
-    # For running the addon
-    nodejs-current \
-    npm \
+# Install essential runtime dependencies and build tools for native modules.
+# build-base is a meta-package that includes gcc, g++, make, etc.
+RUN apk add --no-cache \
     bash \
     nginx \
     sqlite \
     gettext \
     jq \
     curl \
-    # Runtime libraries for native modules
     cairo \
     jpeg \
     pango \
     giflib \
-    librsvg
+    librsvg \
+    build-base \
+    python3 \
+    git \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    giflib-dev \
+    librsvg-dev
 
-# 2. Copy application files
+# Copy application files
 COPY . .
 
-# 3. Install npm packages, including native modules.
-#    --unsafe-perm is critical for native module build scripts to run correctly as root.
+# Install Node.js dependencies. Native modules will be compiled against the
+# libraries and Node.js version provided by the base image.
 RUN npm install --unsafe-perm
 
-# Create a non-root user 'whorun' for running the application
-RUN addgroup -S -g 1000 whorun && \
-    adduser -S -u 1000 -G whorun whorun
-
-# 4. Set permissions.
-#    Change the ownership of the application directory to the non-root user.
-RUN chown -R whorun:whorun /app
-
-# 5. Clean up.
-#    Remove the build-time dependencies and clear caches to keep the image small.
-RUN apk del --no-cache --purge .build-dependencies \
+# Remove build-time dependencies to keep the final image lean.
+RUN apk del --no-cache --purge \
+    build-base \
+    python3 \
+    git \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    giflib-dev \
+    librsvg-dev \
     && rm -rf /root/.npm /tmp/*
 
-# 5. Copy root filesystem for s6-overlay and set permissions
+# The base image 'node:20-alpine' already includes a non-root user 'node' (UID/GID 1000).
+# We will use this existing user instead of creating a new one.
+
+# Set ownership of the app directory to the 'node' user
+RUN chown -R node:node /app
+
+# Copy the root filesystem for the s6-overlay
+# This must be done AFTER chown to ensure root owns the s6 setup.
 COPY rootfs /
+
+# Make s6-overlay scripts executable
 RUN chmod +x -R /etc/cont-init.d /etc/services.d
 
-# 6. Set environment variables
-ENV NODE_ENV=production
-ENV SUPERVISOR_TOKEN=$SUPERVISOR_TOKEN
-ENV WHORANG_ADDON_MODE=true
+# Set environment variables for Home Assistant integration
+ENV LANG C.UTF-8
+ENV SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN}"
 
-# 7. Expose the application port
+# Expose the application port
 EXPOSE 3001
 
-# The base image provides the s6-overlay entrypoint.
+# Start the s6-overlay process manager
+CMD [ "/init" ]

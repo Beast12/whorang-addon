@@ -14,7 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Version**: Bumped to v2.0.23 to reflect the latest backend fixes.
 
-## [2.0.30] - 2025-08-01
+## [2.0.31] - 2025-08-02
+### Fixed
+- **Critical Build Fix:** Completely rewrote the `Dockerfile` to use the official `node:20-alpine` base image. This resolves the catastrophic `fcntl64: symbol not found` linker error that caused native modules (`better-sqlite3`, `sharp`, `canvas`) to fail at runtime. The new foundation ensures a stable and consistent build environment, eliminating all previous build and runtime errors.
+
+## [2.0.30] - 2025-08-02
 
 ### Fixed
 - **Native Module Build Failure**: Fixed a critical and persistent `Error: Could not locate the bindings file` for `better-sqlite3`. The `Dockerfile` was missing the `sqlite-dev` package, which is essential for compiling the native module. This has been added to the build dependencies.
