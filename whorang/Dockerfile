@@ -67,5 +67,5 @@ ENV SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN}"
 # Expose the application port
 EXPOSE 3001
 
-# Start the s6-overlay process manager
-CMD [ "/init" ]
+# Override the base image's entrypoint to start s6-overlay directly.
+ENTRYPOINT [ "/init" ]
