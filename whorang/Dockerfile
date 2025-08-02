@@ -9,25 +9,22 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV LANG C.UTF-8
 
 # Install Node.js, build tools, and other dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        build-essential \
+RUN apk add --no-cache \
+        build-base \
         python3 \
         jq \
         nginx \
         nodejs \
         npm \
         openssl \
-        sqlite3 \
+        sqlite \
         gettext \
         git \
-        libcairo2-dev \
-        libjpeg-dev \
-        libpango1.0-dev \
-        libgif-dev \
-        librsvg2-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
+        cairo-dev \
+        jpeg-dev \
+        pango-dev \
+        giflib-dev \
+        librsvg-dev && \
     echo "Searching for glib-object.h" && \
     find /usr/include -name "glib-object.h"
 
