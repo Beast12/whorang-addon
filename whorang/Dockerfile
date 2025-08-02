@@ -29,7 +29,7 @@ RUN apk add --no-cache \
     find /usr/include -name "glib-object.h"
 
 # Copy the addon's root filesystem (service definitions, etc.)
-COPY rootfs/ /
+COPY ../rootfs/ /
 RUN chmod +x -R /etc/cont-init.d /etc/services.d
 
 # Set up the Node.js application directory
@@ -41,7 +41,7 @@ RUN addgroup --system whorun && \
 
 # Copy package files and install dependencies
 # Use --no-cache to reduce image size
-COPY whorang/package*.json ./
+COPY package*.json ./
 RUN npm cache clean --force && npm install --unsafe-perm --no-cache
 
 # Copy the rest of the application source code
