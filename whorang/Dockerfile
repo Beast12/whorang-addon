@@ -48,7 +48,7 @@ COPY whorang/package*.json ./
 RUN npm cache clean --force && npm install --unsafe-perm --no-cache
 
 # Copy the rest of the application source code
-COPY whorang/ .
+COPY . .
 
 # Set correct ownership for the application directory
 RUN chown -R whorun:whorun /app
