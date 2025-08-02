@@ -15,7 +15,17 @@ const createWebhookRouter = require('./routes/webhook');
 const createConfigRouter = require('./routes/config');
 const createAnalysisRouter = require('./routes/analysis');
 const createFacesRouter = require('./routes/faces');
-const { createStatsRouter } = require('./routes/stats');
+const createStatsRouter = require('./routes/stats');
+
+// Import controllers for dependency injection
+const AnalysisController = require('./controllers/analysisController');
+const ConfigController = require('./controllers/configController');
+const FaceConfigController = require('./controllers/faceConfigController');
+const FaceDetectionController = require('./controllers/faceDetectionController');
+const OllamaController = require('./controllers/ollamaController');
+const PersonController = require('./controllers/personController');
+const StatsController = require('./controllers/statsController');
+const VisitorLabelingController = require('./controllers/visitorLabelingController');
 const uploadMiddleware = require('./middleware/upload');
 
 const app = express();
@@ -172,31 +182,34 @@ app.use((req, res, next) => {
 // Middleware for parsing JSON bodies
 app.use(express.json());
 
-// Initialize routes that require the uploads path
-const uploadsPath = directoryManager.getEffectiveBasePath();
-const { router: webhookRoutes, handleCustomWebhookPaths } = createWebhookRouter(uploadsPath);
-
-// Webhook Routes (must be registered before any other /api routes if path overlaps)
-app.use(handleCustomWebhookPaths);
-
-// API Routes
+// Centralized dependencies for injection
 const dependencies = {
   databaseManager,
-  broadcast,
-  configReader,
+  configManager: configReader,
   directoryManager,
-  getConnectedClients,
+  broadcast,
+  // Controllers
+  AnalysisController,
+  ConfigController,
+  FaceConfigController,
+  FaceDetectionController,
+  OllamaController,
+  PersonController,
+  StatsController,
+  VisitorLabelingController,
 };
 
-const configRouter = createConfigRouter(dependencies);
-const analysisRouter = createAnalysisRouter(dependencies);
-const facesRouter = createFacesRouter(dependencies);
-const statsRouter = createStatsRouter(dependencies);
+// Initialize and use routers
+const { router: webhookRouter, handleCustomWebhookPaths } = createWebhookRouter(dependencies);
+handleCustomWebhookPaths(app, WEBHOOK_PATH); // Special handling for webhook
+app.use('/api/webhook', webhookRouter);
+app.use('/api/config', createConfigRouter(dependencies));
+app.use('/api/analysis', createAnalysisRouter(dependencies));
+app.use('/api/faces', createFacesRouter(dependencies));
+app.use('/api/stats', createStatsRouter(dependencies));
 
-app.use('/api/config', configRouter);
-app.use('/api/analysis', analysisRouter);
-app.use('/api/faces', facesRouter);
-app.use('/api/stats', statsRouter);
+
+
 
 // Webhook Routes
 app.use('/api/webhook', webhookRoutes);

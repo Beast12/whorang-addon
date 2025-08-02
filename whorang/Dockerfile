@@ -1,81 +1,57 @@
-# Use the official Node.js 20 LTS on Alpine as the base image
-# This provides a stable, consistent environment for building native modules.
-FROM node:20-alpine AS base
+# Use the community addon base image for Debian
+ARG BUILD_FROM="ghcr.io/hassio-addons/debian-base:7.8.3"
+FROM ${BUILD_FROM}
 
-# Install s6-overlay for process management in a multi-arch compatible way
-ARG S6_OVERLAY_VERSION=v3.1.6.2
-ARG TARGETARCH
-RUN apk add --no-cache curl xz \
-    && S6_OVERLAY_ARCH="$(case "${TARGETARCH}" in 'amd64') echo 'x86_64' ;; 'armv7') echo 'arm' ;; 'aarch64') echo 'aarch64' ;; esac)" \
-    && curl -o /tmp/s6-overlay.tar.xz -L "https://github.com/just-containers/s6-overlay/releases/download/${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}.tar.xz" \
-    && tar -C / -Jxpf /tmp/s6-overlay.tar.xz \
-    && rm /tmp/s6-overlay.tar.xz \
-    && apk del curl xz
+# Set shell to bash with pipefail for safer script execution
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Set the working directory
-WORKDIR /app
+# Set up environment variables
+ENV LANG C.UTF-8
 
-# Install essential runtime dependencies and build tools for native modules.
-# build-base is a meta-package that includes gcc, g++, make, etc.
-RUN apk add --no-cache \
-    bash \
-    nginx \
-    sqlite \
-    gettext \
-    jq \
-    curl \
-    cairo \
-    jpeg \
-    pango \
-    giflib \
-    librsvg \
-    build-base \
-    python3 \
-    git \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    giflib-dev \
-    librsvg-dev
+# Install Node.js, build tools, and other dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        python3 \
+        jq \
+        nginx \
+        nodejs \
+        npm \
+        openssl \
+        sqlite3 \
+        gettext \
+        git \
+        libcairo2-dev \
+        libjpeg-dev \
+        libpango1.0-dev \
+        libgif-dev \
+        librsvg2-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    echo "Searching for glib-object.h" && \
+    find /usr/include -name "glib-object.h"
 
-# Copy application files
-COPY . .
-
-# Install Node.js dependencies. Native modules will be compiled against the
-# libraries and Node.js version provided by the base image.
-RUN npm install --unsafe-perm
-
-# Remove build-time dependencies to keep the final image lean.
-RUN apk del --no-cache --purge \
-    build-base \
-    python3 \
-    git \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    giflib-dev \
-    librsvg-dev \
-    && rm -rf /root/.npm /tmp/*
-
-# The base image 'node:20-alpine' already includes a non-root user 'node' (UID/GID 1000).
-# We will use this existing user instead of creating a new one.
-
-# Set ownership of the app directory to the 'node' user
-RUN chown -R node:node /app
-
-# Copy the root filesystem for the s6-overlay
-# This must be done AFTER chown to ensure root owns the s6 setup.
-COPY rootfs /
-
-# Make s6-overlay scripts executable
+# Copy the addon's root filesystem (service definitions, etc.)
+COPY rootfs/ /
 RUN chmod +x -R /etc/cont-init.d /etc/services.d
 
-# Set environment variables for Home Assistant integration
-ENV LANG C.UTF-8
-ENV SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN}"
+# Set up the Node.js application directory
+WORKDIR /app
+
+# Create a non-root user for the application to run as
+RUN addgroup --system whorun && \
+    adduser --system --ingroup whorun --no-create-home whorun
+
+# Copy package files and install dependencies
+# Use --no-cache to reduce image size
+COPY whorang/package*.json ./
+RUN npm cache clean --force && npm install --unsafe-perm --no-cache
+
+# Copy the rest of the application source code
+COPY whorang/ .
+
+# Set correct ownership for the application directory
+RUN chown -R whorun:whorun /app
 
 # Expose the application port
 EXPOSE 3001
-
-# Override the base image's entrypoint to start s6-overlay directly.
-ENTRYPOINT [ "/init" ]

@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bash
+# ==============================================================================
+# Starts Nginx
+# ==============================================================================
+
+# Start Nginx in the foreground
+exec /usr/sbin/nginx -c /app/nginx.conf -g "daemon off;"

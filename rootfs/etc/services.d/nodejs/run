@@ -1,0 +1,10 @@
+#!/usr/bin/with-contenv bash
+# ==============================================================================
+# Starts the Node.js backend server
+# ==============================================================================
+
+# Navigate to the app directory
+cd /app
+
+# Execute the Node.js server as the 'whorun' user
+exec s6-setuidgid whorun node server.js

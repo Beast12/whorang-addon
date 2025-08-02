@@ -1,11 +1,17 @@
 const express = require('express');
-const router = express.Router();
-const analysisController = require('../controllers/analysisController');
+const createAnalysisController = require('../controllers/analysisController');
 
-// Trigger AI analysis for a visitor
-router.post('/trigger', analysisController.triggerAnalysis);
+function createAnalysisRouter(dependencies) {
+  const router = express.Router();
+  const analysisController = createAnalysisController(dependencies);
 
-// Get analysis status for a visitor
-router.get('/status/:visitor_id', analysisController.getAnalysisStatus);
+  // Trigger AI analysis for a visitor
+  router.post('/trigger', analysisController.triggerAnalysis);
 
-module.exports = router;
+  // Get analysis status for a visitor
+  router.get('/status/:visitor_id', analysisController.getAnalysisStatus);
+
+  return router;
+}
+
+module.exports = createAnalysisRouter;

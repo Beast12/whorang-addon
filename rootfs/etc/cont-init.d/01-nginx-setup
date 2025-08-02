@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bash
+# ==============================================================================
+# Creates NGINX temporary folders
+# ==============================================================================
+mkdir -p /tmp/nginx/client-body
+chmod 777 /tmp/nginx/client-body
