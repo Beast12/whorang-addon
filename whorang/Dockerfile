@@ -1,6 +1,16 @@
 # Use the official Node.js 20 LTS on Alpine as the base image
 # This provides a stable, consistent environment for building native modules.
-FROM node:20-alpine
+FROM node:20-alpine AS base
+
+# Install s6-overlay for process management in a multi-arch compatible way
+ARG S6_OVERLAY_VERSION=v3.1.6.2
+ARG TARGETARCH
+RUN apk add --no-cache curl xz \
+    && S6_OVERLAY_ARCH="$(case "${TARGETARCH}" in 'amd64') echo 'x86_64' ;; 'armv7') echo 'arm' ;; 'aarch64') echo 'aarch64' ;; esac)" \
+    && curl -o /tmp/s6-overlay.tar.xz -L "https://github.com/just-containers/s6-overlay/releases/download/${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}.tar.xz" \
+    && tar -C / -Jxpf /tmp/s6-overlay.tar.xz \
+    && rm /tmp/s6-overlay.tar.xz \
+    && apk del curl xz
 
 # Set the working directory
 WORKDIR /app

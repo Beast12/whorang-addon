@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Version**: Bumped to v2.0.23 to reflect the latest backend fixes.
 
+## [2.0.33] - 2025-08-02
+
+### Fixed
+
+- **Architectural Fix:** Resolved the catastrophic `stat /init: no such file or directory` error by installing the `s6-overlay` process manager into the `node:20-alpine` base image. The previous image switch inadvertently removed this critical dependency, making it impossible for the addon to start. The `Dockerfile` now correctly builds a stable base with the required process management tools.
+
 ## [2.0.32] - 2025-08-02
 
 ### Fixed
