@@ -19,12 +19,10 @@ const createStatsRouter = require('./routes/stats');
 
 // Import controllers for dependency injection
 const AnalysisController = require('./controllers/analysisController');
-const ConfigController = require('./controllers/configController');
 const FaceConfigController = require('./controllers/faceConfigController');
 const FaceDetectionController = require('./controllers/faceDetectionController');
 const OllamaController = require('./controllers/ollamaController');
 const PersonController = require('./controllers/personController');
-const StatsController = require('./controllers/statsController');
 const VisitorLabelingController = require('./controllers/visitorLabelingController');
 const uploadMiddleware = require('./middleware/upload');
 
@@ -190,12 +188,10 @@ const dependencies = {
   broadcast,
   // Controllers
   AnalysisController,
-  ConfigController,
   FaceConfigController,
   FaceDetectionController,
   OllamaController,
   PersonController,
-  StatsController,
   VisitorLabelingController,
 };
 
