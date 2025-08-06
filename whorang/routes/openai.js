@@ -4,9 +4,10 @@ const { authenticateToken } = require('../middleware/auth');
 function createOpenaiRouter(dependencies) {
   const router = express.Router();
   const { OpenaiController, databaseManager, configManager } = dependencies;
+  const { OpenAIVisionProvider } = require('../services/aiProviders');
   
   // Instantiate controller with dependencies
-  const openaiController = new OpenaiController(databaseManager, configManager);
+  const openaiController = new OpenaiController(databaseManager, configManager, OpenAIVisionProvider);
 
   // Get available models from OpenAI API
   router.get('/models', authenticateToken, openaiController.getAvailableModels.bind(openaiController));

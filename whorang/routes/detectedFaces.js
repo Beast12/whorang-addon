@@ -4,9 +4,10 @@ const { authenticateToken } = require('../middleware/auth');
 function createDetectedFacesRouter(dependencies) {
   const router = express.Router();
   const { DetectedFacesController, databaseManager } = dependencies;
+  const faceProcessingService = require('../services/faceProcessing');
   
   // Instantiate controller with dependencies
-  const detectedFacesController = new DetectedFacesController(databaseManager);
+  const detectedFacesController = new DetectedFacesController(databaseManager, faceProcessingService);
 
   // Get all unassigned faces (for manual labeling)
   router.get('/unassigned', authenticateToken, detectedFacesController.getUnassignedFaces.bind(detectedFacesController));
