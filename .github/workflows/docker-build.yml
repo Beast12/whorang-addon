@@ -65,7 +65,7 @@ jobs:
         with:
           context: ./whorang
           file: ./whorang/Dockerfile
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -86,14 +86,13 @@ jobs:
           MAIN_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)
           
           # Build and push for each architecture
-          for arch in amd64 arm64 arm/v7; do
+          for arch in amd64 arm64; do
             echo "Building and pushing for $arch..."
             
             # Map arch to platform and base image
             case $arch in
               amd64)  PLATFORM="linux/amd64" ; BASE_ARCH="amd64" ;;
               arm64)  PLATFORM="linux/arm64" ; BASE_ARCH="aarch64" ;;
-              arm/v7) PLATFORM="linux/arm/v7" ; BASE_ARCH="armv7" ;;
             esac
             
             # Build and push the architecture-specific image
@@ -118,7 +117,7 @@ jobs:
             -d '{"visibility":"public"}'
           
           # Make specific architecture packages public
-          for arch in amd64 arm64 arm/v7; do
+          for arch in amd64 arm64; do
             # URL encode the arch for the API call
             encoded_arch=$(echo "$arch" | sed 's/\//%2F/g')
             curl -X PATCH \
@@ -305,97 +304,8 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-  create-release:
-    runs-on: ubuntu-latest
-    needs: [build-multi-arch, test-image, security-scan]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Create Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: WhoRang Home Assistant Add-on ${{ github.ref_name }}
-          body: |
-            ## WhoRang AI Doorbell Home Assistant Add-on ${{ github.ref_name }}
-            
-            ### 🏠 Home Assistant Add-on
-            
-            **Official Home Assistant Add-on Store Ready:**
-            - ✅ Full Home Assistant standards compliance
-            - ✅ Bashio integration for configuration and logging
-            - ✅ S6 supervisor service management
-            - ✅ Persistent data storage with `/data` volume
-            - ✅ Web UI integration with ingress support
-            - ✅ Multi-architecture support (amd64, arm64, armv7)
-            
-            ### 🐳 Container Images
-            
-            **Multi-Architecture Support:**
-            - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}`
-            - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest`
-            
-            **Supported Platforms:**
-            - linux/amd64 (x86_64) - Intel/AMD 64-bit
-            - linux/arm64 (ARM 64-bit) - Raspberry Pi 4, Apple Silicon
-            - linux/arm/v7 (ARM 32-bit) - Raspberry Pi 3
-            
-            ### 🚀 Installation
-            
-            **Home Assistant Add-on (Recommended):**
-            1. Add this repository to your Home Assistant add-on store
-            2. Install the WhoRang AI Doorbell add-on
-            3. Configure through the add-on UI
-            4. Start the add-on
-            
-            **Standalone Docker:**
-            ```bash
-            # Docker run (standalone mode)
-            docker run -d --name whorang-addon \
-              -p 80:80 \
-              -v ./whorang-data:/data \
-              -e WHORANG_ADDON_MODE=false \
-              -e AI_PROVIDER=local \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
-            
-            # Docker Compose
-            version: '3.8'
-            services:
-              whorang:
-                image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
-                ports:
-                  - "80:80"
-                volumes:
-                  - ./whorang-data:/data
-                environment:
-                  - WHORANG_ADDON_MODE=false
-                  - AI_PROVIDER=local
-                  - LOG_LEVEL=info
-                restart: unless-stopped
-            ```
-            
-            ### 📋 What's New
-            
-            See [CHANGELOG.md](whorang/CHANGELOG.md) for detailed changes.
-            
-            ### 🔒 Security
-            
-            This release has been scanned for vulnerabilities using Trivy.
-            
-            ### 📚 Documentation
-            
-            - [Add-on README](whorang/README.md)
-            - [Installation Guide](docs/INSTALLATION.md)
-            - [Configuration Options](docs/CONFIGURATION.md)
-            - [Troubleshooting](docs/TROUBLESHOOTING.md)
-            - [API Reference](docs/API_REFERENCE.md)
-          draft: false
-          prerelease: false
+  # Note: Release creation is now handled by version-management.yml workflow
+  # This ensures tags are only created AFTER successful builds
   house-keeping:
     runs-on: ubuntu-latest
     if: always()
