@@ -1,6 +1,9 @@
 const express = require('express');
-const router = express.Router();
 const { getDatabase } = require('../config/database');
+
+function createAiRouter(dependencies) {
+  const router = express.Router();
+  const { configManager: configReader, databaseManager, OllamaController } = dependencies;
 
 // Get AI usage statistics - dedicated endpoint for Home Assistant integration
 router.get('/usage', (req, res) => {
@@ -332,11 +335,7 @@ router.post('/providers/local/config', (req, res) => {
 // Test Ollama connection with current config
 router.post('/providers/local/test', async (req, res) => {
   try {
-    const OllamaController = require('../controllers/ollamaController');
-    const configReader = require('../utils/configReader');
-    const databaseManager = require('../config/database');
-    
-    // Instantiate OllamaController with dependencies
+    // Instantiate OllamaController with injected dependencies
     const ollamaController = new OllamaController(configReader, databaseManager);
     await ollamaController.testConnection(req, res);
     
@@ -350,25 +349,23 @@ router.post('/providers/local/test', async (req, res) => {
   }
 });
 
-// Get available Ollama models
+// Get available models from Ollama
 router.get('/providers/local/models', async (req, res) => {
   try {
-    const OllamaController = require('../controllers/ollamaController');
-    const configReader = require('../utils/configReader');
-    const databaseManager = require('../config/database');
-    
-    // Instantiate OllamaController with dependencies
+    // Instantiate OllamaController with injected dependencies
     const ollamaController = new OllamaController(configReader, databaseManager);
     await ollamaController.getAvailableModels(req, res);
     
   } catch (error) {
-    console.error('Error getting Ollama models:', error);
+    console.error('Error getting available models:', error);
     res.status(500).json({
-      success: false,
-      error: 'Failed to get Ollama models',
+      error: 'Failed to get available models',
       details: error.message
     });
   }
 });
 
-module.exports = router;
+  return router;
+}
+
+module.exports = createAiRouter;
