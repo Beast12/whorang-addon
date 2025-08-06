@@ -1,35 +1,33 @@
-# Use the community addon base image for Debian
-ARG BUILD_FROM="ghcr.io/hassio-addons/debian-base:7.8.3"
+# Use Home Assistant base image (Alpine-based)
+ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
 # Set shell to bash with pipefail for safer script execution
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Set up environment variables
-ENV LANG C.UTF-8
+ENV LANG=C.UTF-8
 
-# Install Node.js, build tools, and other dependencies
-RUN apt-get update && apt-get install -y \
-        build-essential \
+# Install Node.js, build tools, and other dependencies using Alpine package manager
+RUN apk add --no-cache \
+        build-base \
         python3 \
         jq \
         nginx \
         nodejs \
         npm \
         openssl \
-        sqlite3 \
+        sqlite \
         gettext \
         git \
-        libcairo2-dev \
-        libjpeg-dev \
-        libpango1.0-dev \
-        libgif-dev \
-        librsvg2-dev \
-        pkg-config && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
+        cairo-dev \
+        jpeg-dev \
+        pango-dev \
+        giflib-dev \
+        librsvg-dev \
+        pkgconfig && \
     echo "Searching for glib-object.h" && \
-    find /usr/include -name "glib-object.h"
+    find /usr/include -name "glib-object.h" 2>/dev/null || echo "glib-object.h not found, but build should continue"
 
 # Copy the addon's root filesystem (service definitions, etc.)
 COPY ../rootfs/ /
