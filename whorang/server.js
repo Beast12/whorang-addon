@@ -15,7 +15,7 @@ const createWebhookRouter = require('./routes/webhook');
 const createConfigRouter = require('./routes/config');
 const createAnalysisRouter = require('./routes/analysis');
 const createFacesRouter = require('./routes/faces');
-const createStatsRouter = require('./routes/stats');
+const { createStatsRouter } = require('./routes/stats');
 
 // Import controllers for dependency injection
 const AnalysisController = require('./controllers/analysisController');
@@ -204,12 +204,6 @@ app.use('/api/config', createConfigRouter(dependencies));
 app.use('/api/analysis', createAnalysisRouter(dependencies));
 app.use('/api/faces', createFacesRouter(dependencies));
 app.use('/api/stats', createStatsRouter(dependencies));
-
-
-
-
-// Webhook Routes
-app.use('/api/webhook', webhookRoutes);
 
 // Serve static assets for frontend
 app.use(express.static(path.join(__dirname, 'public')));
