@@ -3,7 +3,10 @@ const { authenticateToken } = require('../middleware/auth');
 
 function createOpenaiRouter(dependencies) {
   const router = express.Router();
-  const { OpenaiController, databaseManager, configManager } = dependencies;
+  const { databaseManager, configManager, broadcast } = dependencies;
+  
+  // Import controller and required service
+  const OpenaiController = require('../controllers/openaiController');
   const { OpenAIVisionProvider } = require('../services/aiProviders');
   
   // Instantiate controller with dependencies

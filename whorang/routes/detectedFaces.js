@@ -3,7 +3,10 @@ const { authenticateToken } = require('../middleware/auth');
 
 function createDetectedFacesRouter(dependencies) {
   const router = express.Router();
-  const { DetectedFacesController, databaseManager } = dependencies;
+  const { databaseManager } = dependencies;
+  
+  // Import controller and service
+  const DetectedFacesController = require('../controllers/detectedFacesController');
   const faceProcessingService = require('../services/faceProcessing');
   
   // Instantiate controller with dependencies
