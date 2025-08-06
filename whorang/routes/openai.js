@@ -1,32 +1,44 @@
 const express = require('express');
-const router = express.Router();
-const openaiController = require('../controllers/openaiController');
+const { authenticateToken } = require('../middleware/auth');
 
-// Get available OpenAI models
-router.get('/models', openaiController.getAllModels);
+function createOpenaiRouter(dependencies) {
+  const router = express.Router();
+  const { OpenaiController, databaseManager, configManager } = dependencies;
+  
+  // Instantiate controller with dependencies
+  const openaiController = new OpenaiController(databaseManager, configManager);
 
-// Get available models for specific provider
-router.get('/models/:provider', openaiController.getProviderModels);
+  // Get available models from OpenAI API
+  router.get('/models', authenticateToken, openaiController.getAvailableModels.bind(openaiController));
 
-// Get current AI model
-router.get('/model/current', openaiController.getCurrentModel);
+  // Test OpenAI connection
+  router.post('/test-connection', authenticateToken, openaiController.testConnection.bind(openaiController));
 
-// Set AI model
-router.post('/model', openaiController.setAIModel);
+  // Get usage statistics
+  router.get('/usage/stats', authenticateToken, openaiController.getUsageStats.bind(openaiController));
 
-// Test OpenAI API connection
-router.post('/test-connection', openaiController.testConnection);
+  // Get usage logs
+  router.get('/usage/logs', authenticateToken, openaiController.getUsageLogs.bind(openaiController));
 
-// Get AI usage statistics
-router.get('/usage/stats', openaiController.getUsageStats);
+  // Get available AI providers
+  router.get('/providers', authenticateToken, openaiController.getAvailableProviders.bind(openaiController));
 
-// Get AI usage logs
-router.get('/usage/logs', openaiController.getUsageLogs);
+  // Set AI provider
+  router.post('/provider', authenticateToken, openaiController.setAIProvider.bind(openaiController));
 
-// Get available AI providers
-router.get('/providers', openaiController.getAvailableProviders);
+  // Get all models from all providers
+  router.get('/all-models', authenticateToken, openaiController.getAllModels.bind(openaiController));
 
-// Set AI provider
-router.post('/provider', openaiController.setAIProvider);
+  // Get models for a specific provider
+  router.get('/provider/:provider/models', authenticateToken, openaiController.getProviderModels.bind(openaiController));
 
-module.exports = router;
+  // Get current model
+  router.get('/current-model', authenticateToken, openaiController.getCurrentModel.bind(openaiController));
+
+  // Set AI model
+  router.post('/model', authenticateToken, openaiController.setAIModel.bind(openaiController));
+
+  return router;
+}
+
+module.exports = createOpenaiRouter;

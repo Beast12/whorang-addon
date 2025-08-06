@@ -50,10 +50,10 @@ class DetectedFacesController {
   }
 
   // Get faces for a specific person
-  static async getPersonFaces(req, res) {
+  async getPersonFaces(req, res) {
     try {
       const { personId } = req.params;
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       
       const stmt = db.prepare(`
         SELECT df.*, de.timestamp, de.ai_title, de.image_url as original_image

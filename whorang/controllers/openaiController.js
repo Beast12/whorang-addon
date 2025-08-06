@@ -72,9 +72,9 @@ class OpenAIController {
   }
 
   // Test OpenAI API connection
-  static async testConnection(req, res) {
+  async testConnection(req, res) {
     try {
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       const configStmt = db.prepare('SELECT * FROM face_recognition_config LIMIT 1');
       const config = configStmt.get();
       
@@ -128,9 +128,9 @@ class OpenAIController {
   }
 
   // Get AI usage statistics
-  static async getUsageStats(req, res) {
+  async getUsageStats(req, res) {
     try {
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       const { period = '30d' } = req.query;
       
       let dateFilter = '';
@@ -239,9 +239,9 @@ class OpenAIController {
   }
 
   // Get recent AI usage logs
-  static async getUsageLogs(req, res) {
+  async getUsageLogs(req, res) {
     try {
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       const { limit = 50, offset = 0, provider } = req.query;
       
       let providerFilter = '';
@@ -291,7 +291,7 @@ class OpenAIController {
   }
 
   // Get available AI providers
-  static async getAvailableProviders(req, res) {
+  async getAvailableProviders(req, res) {
     try {
       const providers = {
         local: { requires_key: false, name: 'Local Ollama' },
@@ -316,7 +316,7 @@ class OpenAIController {
   }
 
   // Set AI provider
-  static async setAIProvider(req, res) {
+  async setAIProvider(req, res) {
     try {
       const { provider, api_key } = req.body;
       
@@ -339,7 +339,7 @@ class OpenAIController {
       console.log('Provider:', provider);
       console.log('Has API key:', !!api_key);
 
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       
       // Get current config
       const configStmt = db.prepare('SELECT * FROM face_recognition_config LIMIT 1');
@@ -403,7 +403,7 @@ class OpenAIController {
   }
 
   // Get available models for all providers
-  static async getAllModels(req, res) {
+  async getAllModels(req, res) {
     try {
       console.log('=== GETTING ALL PROVIDER MODELS ===');
 
@@ -428,7 +428,7 @@ class OpenAIController {
   }
 
   // Get available models for specific provider
-  static async getProviderModels(req, res) {
+  async getProviderModels(req, res) {
     try {
       const { provider } = req.params;
       
@@ -448,7 +448,7 @@ class OpenAIController {
       if (provider === 'local') {
         try {
           // Get Ollama configuration from database
-          const db = require('../config/database').getDatabase();
+          const db = this.databaseManager.getDatabase();
           const configStmt = db.prepare('SELECT ollama_url FROM face_recognition_config LIMIT 1');
           const config = configStmt.get();
           
@@ -509,9 +509,9 @@ class OpenAIController {
   }
 
   // Get current AI model
-  static async getCurrentModel(req, res) {
+  async getCurrentModel(req, res) {
     try {
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       const configStmt = db.prepare('SELECT ai_provider, current_ai_model, ollama_model, openai_model FROM face_recognition_config LIMIT 1');
       const config = configStmt.get();
 
@@ -559,7 +559,7 @@ class OpenAIController {
   }
 
   // Set AI model
-  static async setAIModel(req, res) {
+  async setAIModel(req, res) {
     try {
       const { model } = req.body;
       
@@ -573,7 +573,7 @@ class OpenAIController {
       console.log('=== SETTING AI MODEL ===');
       console.log('Model:', model);
 
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       
       // Get current config
       const configStmt = db.prepare('SELECT * FROM face_recognition_config LIMIT 1');
@@ -626,7 +626,7 @@ class OpenAIController {
   }
 
   // Get default model mappings with deprecation awareness
-  static _getDefaultModels() {
+  _getDefaultModels() {
     return {
       local: [
         'llava',

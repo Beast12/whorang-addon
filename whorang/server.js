@@ -19,9 +19,11 @@ const { createStatsRouter } = require('./routes/stats');
 
 // Import controllers for dependency injection
 const AnalysisController = require('./controllers/analysisController');
+const DetectedFacesController = require('./controllers/detectedFacesController');
 const FaceConfigController = require('./controllers/faceConfigController');
 const FaceDetectionController = require('./controllers/faceDetectionController');
 const OllamaController = require('./controllers/ollamaController');
+const OpenaiController = require('./controllers/openaiController');
 const PersonController = require('./controllers/personController');
 const VisitorLabelingController = require('./controllers/visitorLabelingController');
 const uploadMiddleware = require('./middleware/upload');
@@ -188,9 +190,11 @@ const dependencies = {
   broadcast,
   // Controllers
   AnalysisController,
+  DetectedFacesController,
   FaceConfigController,
   FaceDetectionController,
   OllamaController,
+  OpenaiController,
   PersonController,
   VisitorLabelingController,
 };
@@ -199,11 +203,14 @@ const dependencies = {
 const { router: webhookRouter, handleCustomWebhookPaths } = createWebhookRouter(dependencies);
 // Register webhook middleware for custom path handling
 app.use(handleCustomWebhookPaths);
-app.use('/api/webhook', webhookRouter);
-app.use('/api/config', createConfigRouter(dependencies));
 app.use('/api/analysis', createAnalysisRouter(dependencies));
-app.use('/api/faces', createFacesRouter(dependencies));
+app.use('/api/config', createConfigRouter(dependencies));
 app.use('/api/stats', createStatsRouter(dependencies));
+app.use('/api/faces', createFacesRouter(dependencies));
+app.use('/api/detectedFaces', require('./routes/detectedFaces')(dependencies));
+app.use('/api/openai', require('./routes/openai')(dependencies));
+app.use('/api/ai', require('./routes/ai'));
+app.use('/api/webhook', webhookRouter);
 
 // Serve static assets for frontend
 app.use(express.static(path.join(__dirname, 'public')));
