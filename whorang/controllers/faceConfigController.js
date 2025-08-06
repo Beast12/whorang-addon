@@ -1,10 +1,13 @@
-
 const { getDatabase } = require('../config/database');
 
 class FaceConfigController {
-  // Get face recognition config
-  static getConfig(req, res) {
-    const db = getDatabase();
+  constructor(databaseManager, configManager) {
+    this.databaseManager = databaseManager;
+    this.configManager = configManager;
+  }
+
+  getConfig(req, res) {
+    const db = this.databaseManager.getDatabase();
     
     try {
       const stmt = db.prepare('SELECT * FROM face_recognition_config LIMIT 1');
@@ -36,8 +39,8 @@ class FaceConfigController {
   }
 
   // Update face recognition config
-  static updateConfig(req, res) {
-    const db = getDatabase();
+  updateConfig(req, res) {
+    const db = this.databaseManager.getDatabase();
     const { 
       enabled, 
       ai_provider, 
@@ -246,8 +249,8 @@ class FaceConfigController {
   }
 
   // Debug endpoint to check database state
-  static getDebugInfo(req, res) {
-    const db = getDatabase();
+  getDebugInfo(req, res) {
+    const db = this.databaseManager.getDatabase();
     
     try {
       // Get schema info

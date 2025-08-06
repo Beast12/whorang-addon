@@ -1,12 +1,15 @@
 
-const { getDatabase } = require('../config/database');
 const path = require('path');
 const fs = require('fs');
 
 class PersonController {
+  constructor(databaseManager) {
+    this.databaseManager = databaseManager;
+  }
+
   // Get all persons
-  static getPersons(req, res) {
-    const db = getDatabase();
+  getPersons(req, res) {
+    const db = this.databaseManager.getDatabase();
     
     try {
       const stmt = db.prepare(`
@@ -29,8 +32,8 @@ class PersonController {
   }
 
   // Get specific person with encodings
-  static getPerson(req, res) {
-    const db = getDatabase();
+  getPerson(req, res) {
+    const db = this.databaseManager.getDatabase();
     const personId = req.params.id;
     
     try {
@@ -66,8 +69,8 @@ class PersonController {
   }
 
   // Create new person
-  static createPerson(req, res) {
-    const db = getDatabase();
+  createPerson(req, res) {
+    const db = this.databaseManager.getDatabase();
     const { name, notes } = req.body;
     
     if (!name) {
@@ -89,8 +92,8 @@ class PersonController {
   }
 
   // Update person
-  static updatePerson(req, res) {
-    const db = getDatabase();
+  updatePerson(req, res) {
+    const db = this.databaseManager.getDatabase();
     const personId = req.params.id;
     const { name, notes } = req.body;
     
@@ -113,8 +116,8 @@ class PersonController {
   }
 
   // Delete person
-  static deletePerson(req, res) {
-    const db = getDatabase();
+  deletePerson(req, res) {
+    const db = this.databaseManager.getDatabase();
     const personId = req.params.id;
     
     try {
@@ -133,8 +136,8 @@ class PersonController {
   }
 
   // Get person avatar (best quality face image)
-  static getPersonAvatar(req, res) {
-    const db = getDatabase();
+  getPersonAvatar(req, res) {
+    const db = this.databaseManager.getDatabase();
     const personId = req.params.id;
     
     try {

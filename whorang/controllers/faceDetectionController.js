@@ -1,10 +1,14 @@
-
 const { getDatabase } = require('../config/database');
 const faceProcessingService = require('../services/faceProcessing');
 
 class FaceDetectionController {
+  constructor(databaseManager, faceProcessingService) {
+    this.databaseManager = databaseManager;
+    this.faceProcessingService = faceProcessingService;
+  }
+
   // Manually process image for face detection
-  static async detectFaces(req, res) {
+  async detectFaces(req, res) {
     try {
       const { visitor_event_id } = req.body;
       
@@ -47,7 +51,7 @@ class FaceDetectionController {
   }
 
   // Train person with images
-  static async trainPerson(req, res) {
+  async trainPerson(req, res) {
     try {
       const personId = req.params.personId;
       
@@ -81,7 +85,7 @@ class FaceDetectionController {
   }
 
   // Get processing queue status
-  static getProcessingStatus(req, res) {
+  getProcessingStatus(req, res) {
     res.json({
       queueLength: faceProcessingService.processingQueue.length,
       isProcessing: faceProcessingService.isProcessing

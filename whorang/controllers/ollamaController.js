@@ -1,12 +1,16 @@
 
-const { getDatabase } = require('../config/database');
 const http = require('http');
 const https = require('https');
 const { URL } = require('url');
 
 class OllamaController {
-  // Helper method to make HTTP requests
-  static makeHttpRequest(url, options = {}) {
+  constructor(configManager, databaseManager) {
+    this.configManager = configManager;
+    this.databaseManager = databaseManager;
+  }
+
+  // Utility method for making HTTP requests
+  makeHttpRequest(url, options = {}) {
     return new Promise((resolve, reject) => {
       const urlObj = new URL(url);
       const isHttps = urlObj.protocol === 'https:';
@@ -65,8 +69,8 @@ class OllamaController {
   }
 
   // Helper method to get Ollama URL with Docker networking support
-  static getOllamaUrl() {
-    const db = getDatabase();
+  getOllamaUrl() {
+    const db = this.databaseManager.getDatabase();
     const configStmt = db.prepare('SELECT * FROM face_recognition_config LIMIT 1');
     const config = configStmt.get();
     
@@ -94,9 +98,9 @@ class OllamaController {
   }
 
   // Get available models from Ollama instance
-  static async getAvailableModels(req, res) {
+  async getAvailableModels(req, res) {
     try {
-      const ollamaUrl = OllamaController.getOllamaUrl();
+      const ollamaUrl = this.getOllamaUrl();
       
       console.log('=== FETCHING OLLAMA MODELS ===');
       console.log('Using Ollama URL:', ollamaUrl);
@@ -152,7 +156,7 @@ class OllamaController {
       console.error('=== OLLAMA MODELS ERROR ===');
       console.error('Error details:', error);
       
-      const ollamaUrl = OllamaController.getOllamaUrl();
+      const ollamaUrl = this.getOllamaUrl();
       
       let errorMessage = error.message;
       if (error.code === 'ECONNREFUSED') {
@@ -187,14 +191,14 @@ class OllamaController {
   }
 
   // Test Ollama connection
-  static async testConnection(req, res) {
+  async testConnection(req, res) {
     try {
-      const ollamaUrl = OllamaController.getOllamaUrl();
+      const ollamaUrl = this.getOllamaUrl();
       
       console.log('=== TESTING OLLAMA CONNECTION ===');
       console.log('Testing connection to:', ollamaUrl);
       
-      const response = await OllamaController.makeHttpRequest(`${ollamaUrl}/api/version`, {
+      const response = await this.makeHttpRequest(`${ollamaUrl}/api/version`, {
         timeout: 5000
       });
 
@@ -224,7 +228,7 @@ class OllamaController {
       console.error('=== OLLAMA CONNECTION TEST FAILED ===');
       console.error('Error details:', error);
       
-      const ollamaUrl = OllamaController.getOllamaUrl();
+      const ollamaUrl = this.getOllamaUrl();
       
       let errorMessage = error.message;
       if (error.code === 'ECONNREFUSED') {

@@ -12,7 +12,7 @@ function createFacesRouter(dependencies) {
   const faceConfigController = new dependencies.FaceConfigController(databaseManager, configManager);
   const faceDetectionController = new dependencies.FaceDetectionController(databaseManager, configManager, broadcast);
   const visitorLabelingController = new dependencies.VisitorLabelingController(databaseManager, broadcast);
-  const ollamaController = new dependencies.OllamaController(configManager);
+  const ollamaController = new dependencies.OllamaController(configManager, databaseManager);
 
   // Person management routes
   router.get('/persons', personController.getPersons.bind(personController));

@@ -1,10 +1,14 @@
-
 const { getDatabase } = require('../config/database');
 
 class VisitorLabelingController {
+  constructor(databaseManager, broadcast) {
+    this.databaseManager = databaseManager;
+    this.broadcast = broadcast;
+  }
+
   // Label a visitor event with a person
-  static labelVisitorEvent(req, res) {
-    const db = getDatabase();
+  labelVisitorEvent(req, res) {
+    const db = this.databaseManager.getDatabase();
     const { visitor_event_id, person_id, confidence } = req.body;
     
     if (!visitor_event_id) {
@@ -52,8 +56,8 @@ class VisitorLabelingController {
   }
 
   // Get visitor events with person information
-  static getEventsWithPersons(req, res) {
-    const db = getDatabase();
+  getEventsWithPersons(req, res) {
+    const db = this.databaseManager.getDatabase();
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
