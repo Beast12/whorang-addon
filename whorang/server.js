@@ -219,6 +219,7 @@ app.get('/settings.html', (req, res) => {
 });
 
 // Serve static files from the effective uploads directory
+const uploadsPath = directoryManager.getEffectiveBasePath();
 console.log(`📁 Serving uploads from: ${uploadsPath}`);
 app.use('/uploads', express.static(uploadsPath));
 

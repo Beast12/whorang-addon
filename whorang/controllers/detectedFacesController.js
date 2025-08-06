@@ -2,10 +2,15 @@ const { getDatabase } = require('../config/database');
 const faceProcessingService = require('../services/faceProcessing');
 
 class DetectedFacesController {
+  constructor(databaseManager, faceProcessingService) {
+    this.databaseManager = databaseManager;
+    this.faceProcessingService = faceProcessingService;
+  }
+
   // Get all unassigned faces (for manual labeling)
-  static async getUnassignedFaces(req, res) {
+  async getUnassignedFaces(req, res) {
     try {
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       const { limit = 50, offset = 0, quality_threshold = 0 } = req.query;
       
       const stmt = db.prepare(`
@@ -68,7 +73,7 @@ class DetectedFacesController {
   }
 
   // Assign a face to a person (manual labeling)
-  static async assignFaceToPerson(req, res) {
+  async assignFaceToPerson(req, res) {
     try {
       const { faceId } = req.params;
       const { personId } = req.body;
@@ -77,7 +82,7 @@ class DetectedFacesController {
         return res.status(400).json({ error: 'Person ID is required' });
       }
       
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       
       // Check if person exists
       const personStmt = db.prepare('SELECT * FROM persons WHERE id = ?');
@@ -96,10 +101,10 @@ class DetectedFacesController {
       }
       
       // Assign face to person
-      await faceProcessingService.assignFaceToPerson(faceId, personId, face.confidence, true);
+      await this.faceProcessingService.assignFaceToPerson(faceId, personId, face.confidence, true);
       
       // Update person statistics
-      await faceProcessingService.updatePersonStats(personId);
+      await this.faceProcessingService.updatePersonStats(personId);
       
       res.json({ 
         message: 'Face assigned successfully',
@@ -114,10 +119,10 @@ class DetectedFacesController {
   }
 
   // Unassign a face from a person
-  static async unassignFace(req, res) {
+  async unassignFace(req, res) {
     try {
       const { faceId } = req.params;
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       
       // Check if face exists
       const faceStmt = db.prepare('SELECT * FROM detected_faces WHERE id = ?');
@@ -139,7 +144,7 @@ class DetectedFacesController {
       
       // Update person statistics if there was a previous assignment
       if (oldPersonId) {
-        await faceProcessingService.updatePersonStats(oldPersonId);
+        await this.faceProcessingService.updatePersonStats(oldPersonId);
       }
       
       res.json({ 
@@ -153,7 +158,7 @@ class DetectedFacesController {
   }
 
   // Bulk assign multiple faces to a person
-  static async bulkAssignFaces(req, res) {
+  async bulkAssignFaces(req, res) {
     try {
       const { faceIds, personId } = req.body;
       
@@ -165,7 +170,7 @@ class DetectedFacesController {
         return res.status(400).json({ error: 'Person ID is required' });
       }
       
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       
       // Check if person exists
       const personStmt = db.prepare('SELECT * FROM persons WHERE id = ?');
@@ -185,7 +190,7 @@ class DetectedFacesController {
           const face = faceStmt.get(faceId);
           
           if (face) {
-            await faceProcessingService.assignFaceToPerson(faceId, personId, face.confidence, true);
+            await this.faceProcessingService.assignFaceToPerson(faceId, personId, face.confidence, true);
             assignedCount++;
           } else {
             errors.push(`Face ${faceId} not found`);
@@ -197,7 +202,7 @@ class DetectedFacesController {
       
       // Update person statistics
       if (assignedCount > 0) {
-        await faceProcessingService.updatePersonStats(personId);
+        await this.faceProcessingService.updatePersonStats(personId);
       }
       
       res.json({ 
@@ -213,12 +218,12 @@ class DetectedFacesController {
   }
 
   // Get face similarity suggestions for a specific face
-  static async getFaceSimilarities(req, res) {
+  async getFaceSimilarities(req, res) {
     try {
       const { faceId } = req.params;
       const { threshold = 0.6, limit = 10 } = req.query;
       
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       const faceCroppingService = require('../services/faceCroppingService');
       
       // Get the target face
@@ -277,10 +282,10 @@ class DetectedFacesController {
   }
 
   // Delete a detected face
-  static async deleteFace(req, res) {
+  async deleteFace(req, res) {
     try {
       const { faceId } = req.params;
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       const fs = require('fs').promises;
       const path = require('path');
       
@@ -315,7 +320,7 @@ class DetectedFacesController {
       
       // Update person statistics if face was assigned
       if (oldPersonId) {
-        await faceProcessingService.updatePersonStats(oldPersonId);
+        await this.faceProcessingService.updatePersonStats(oldPersonId);
       }
       
       res.json({ 
@@ -329,9 +334,9 @@ class DetectedFacesController {
   }
 
   // Get face detection statistics
-  static async getFaceStats(req, res) {
+  async getFaceStats(req, res) {
     try {
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       
       // Total faces detected
       const totalStmt = db.prepare('SELECT COUNT(*) as total FROM detected_faces');

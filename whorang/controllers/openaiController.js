@@ -2,10 +2,15 @@ const { getDatabase } = require('../config/database');
 const { OpenAIVisionProvider } = require('../services/aiProviders');
 
 class OpenAIController {
-  // Get available models from OpenAI API
-  static async getAvailableModels(req, res) {
+  constructor(databaseManager, configManager, openAIVisionProvider) {
+    this.databaseManager = databaseManager;
+    this.configManager = configManager;
+    this.openAIVisionProvider = openAIVisionProvider;
+  }
+
+  async getAvailableModels(req, res) {
     try {
-      const db = getDatabase();
+      const db = this.databaseManager.getDatabase();
       const configStmt = db.prepare('SELECT * FROM face_recognition_config LIMIT 1');
       const config = configStmt.get();
       
