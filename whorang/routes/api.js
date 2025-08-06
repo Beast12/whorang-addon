@@ -1,34 +1,40 @@
-
 const express = require('express');
-const router = express.Router();
 
-// Import route modules
+// Import factory functions for routes that need dependencies
+const createStatsRouter = require('./stats');
+const createConfigRouter = require('./config');
+const createFacesRouter = require('./faces');
+const createDetectedFacesRouter = require('./detectedFaces');
+const createOpenaiRouter = require('./openai');
+const createAnalysisRouter = require('./analysis');
+
+// Import direct routes (no dependencies needed)
 const visitorsRoutes = require('./visitors');
-const statsRoutes = require('./stats');
 const databaseRoutes = require('./database');
-const configRoutes = require('./config');
-const facesRoutes = require('./faces');
-const detectedFacesRoutes = require('./detectedFaces');
-const openaiRoutes = require('./openai');
-const analysisRoutes = require('./analysis');
 const aiRoutes = require('./ai');
 const systemRoutes = require('./system');
 
-// Health check
-router.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+function createApiRouter(dependencies) {
+  const router = express.Router();
 
-// Mount route modules
-router.use('/visitors', visitorsRoutes);
-router.use('/stats', statsRoutes);
-router.use('/database', databaseRoutes);
-router.use('/config', configRoutes);
-router.use('/faces', facesRoutes);
-router.use('/detected-faces', detectedFacesRoutes);
-router.use('/openai', openaiRoutes);
-router.use('/analysis', analysisRoutes);
-router.use('/ai', aiRoutes);
-router.use('/system', systemRoutes);
+  // Health check
+  router.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
 
-module.exports = router;
+  // Mount route modules - use factory functions for routes that need dependencies
+  router.use('/visitors', visitorsRoutes);
+  router.use('/stats', createStatsRouter(dependencies));
+  router.use('/database', databaseRoutes);
+  router.use('/config', createConfigRouter(dependencies));
+  router.use('/faces', createFacesRouter(dependencies));
+  router.use('/detected-faces', createDetectedFacesRouter(dependencies));
+  router.use('/openai', createOpenaiRouter(dependencies));
+  router.use('/analysis', createAnalysisRouter(dependencies));
+  router.use('/ai', aiRoutes);
+  router.use('/system', systemRoutes);
+
+  return router;
+}
+
+module.exports = createApiRouter;

@@ -333,9 +333,12 @@ router.post('/providers/local/config', (req, res) => {
 router.post('/providers/local/test', async (req, res) => {
   try {
     const OllamaController = require('../controllers/ollamaController');
+    const configReader = require('../utils/configReader');
+    const databaseManager = require('../config/database');
     
-    // Use the test connection method from OllamaController
-    await OllamaController.testConnection(req, res);
+    // Instantiate OllamaController with dependencies
+    const ollamaController = new OllamaController(configReader, databaseManager);
+    await ollamaController.testConnection(req, res);
     
   } catch (error) {
     console.error('Error testing Ollama connection:', error);
@@ -351,9 +354,12 @@ router.post('/providers/local/test', async (req, res) => {
 router.get('/providers/local/models', async (req, res) => {
   try {
     const OllamaController = require('../controllers/ollamaController');
+    const configReader = require('../utils/configReader');
+    const databaseManager = require('../config/database');
     
-    // Use the get available models method from OllamaController
-    await OllamaController.getAvailableModels(req, res);
+    // Instantiate OllamaController with dependencies
+    const ollamaController = new OllamaController(configReader, databaseManager);
+    await ollamaController.getAvailableModels(req, res);
     
   } catch (error) {
     console.error('Error getting Ollama models:', error);

@@ -172,7 +172,8 @@ module.exports = (uploadsPath) => {
               }
             });
             
-            const analysisController = require('../controllers/analysisController');
+            const AnalysisController = require('../controllers/analysisController');
+            const analysisController = new AnalysisController(databaseManager, configManager, broadcast);
             const result = await analysisController.processAnalysisDirectly(eventWithId.id, aiTemplateConfig);
             
             console.log('Automatic analysis completed for visitor:', eventWithId.id);

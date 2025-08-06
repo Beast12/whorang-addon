@@ -10,7 +10,8 @@ function createFacesRouter(dependencies) {
   // Instantiate controllers with dependencies
   const personController = new dependencies.PersonController(databaseManager);
   const faceConfigController = new dependencies.FaceConfigController(databaseManager, configManager);
-  const faceDetectionController = new dependencies.FaceDetectionController(databaseManager, configManager, broadcast);
+  const faceProcessingService = require('../services/faceProcessing');
+  const faceDetectionController = new dependencies.FaceDetectionController(databaseManager, faceProcessingService);
   const visitorLabelingController = new dependencies.VisitorLabelingController(databaseManager, broadcast);
   const ollamaController = new dependencies.OllamaController(configManager, databaseManager);
 
