@@ -201,7 +201,8 @@ const dependencies = {
 
 // Initialize and use routers
 const { router: webhookRouter, handleCustomWebhookPaths } = createWebhookRouter(dependencies);
-handleCustomWebhookPaths(app, WEBHOOK_PATH); // Special handling for webhook
+// Register webhook middleware for custom path handling
+app.use(handleCustomWebhookPaths);
 app.use('/api/webhook', webhookRouter);
 app.use('/api/config', createConfigRouter(dependencies));
 app.use('/api/analysis', createAnalysisRouter(dependencies));
