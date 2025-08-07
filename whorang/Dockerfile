@@ -48,6 +48,11 @@ RUN npm cache clean --force && npm install --unsafe-perm --no-cache
 # Copy the rest of the application source code
 COPY . .
 
+# Create data directory with proper permissions (no fix-attrs needed)
+RUN mkdir -p /data && \
+    chown root:root /data && \
+    chmod 755 /data
+
 # Copy nginx configuration files to correct locations
 RUN mkdir -p /etc/nginx/conf.d && \
     cp /app/nginx.conf /etc/nginx/nginx.conf && \
