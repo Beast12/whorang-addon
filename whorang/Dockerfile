@@ -48,6 +48,12 @@ RUN npm cache clean --force && npm install --unsafe-perm --no-cache
 # Copy the rest of the application source code
 COPY . .
 
+# Copy nginx configuration files to correct locations
+RUN mkdir -p /etc/nginx/conf.d && \
+    cp /app/nginx.conf /etc/nginx/nginx.conf && \
+    cp /app/backend.conf /etc/nginx/conf.d/default.conf && \
+    rm -f /etc/nginx/http.d/default.conf
+
 # Set correct ownership for the application directory
 RUN chown -R whorun:whorun /app
 

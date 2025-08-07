@@ -19,6 +19,7 @@ const createDetectedFacesRouter = require('./routes/detectedFaces');
 const createOpenaiRouter = require('./routes/openai');
 const createAiRouter = require('./routes/ai');
 const { createStatsRouter } = require('./routes/stats');
+const systemRouter = require('./routes/system');
 
 // Import controllers for dependency injection
 const AnalysisController = require('./controllers/analysisController');
@@ -214,6 +215,9 @@ app.use('/api/detectedFaces', createDetectedFacesRouter(dependencies));
 app.use('/api/openai', createOpenaiRouter(dependencies));
 app.use('/api/ai', createAiRouter(dependencies));
 app.use('/api/webhook', webhookRouter);
+
+// Register system routes (includes /health endpoint)
+app.use('/', systemRouter);
 
 // Serve static assets for frontend
 app.use(express.static(path.join(__dirname, 'public')));
