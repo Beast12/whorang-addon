@@ -152,7 +152,7 @@ jobs:
           # Test 1: Standalone mode (non-HA environment)
           echo "🔧 Testing standalone mode..."
           docker run -d --name whorang-test-standalone \
-            -p 8080:80 \
+            -p 8080:8080 \
             -v /tmp/whorang-standalone-data:/data:rw \
             -e WHORANG_ADDON_MODE=false \
             -e AI_PROVIDER=local \
@@ -161,11 +161,11 @@ jobs:
           
           # Wait for container to start and services to be ready
           echo "⏳ Waiting for services to start..."
-          sleep 30
+          sleep 10
           
-          # Test health endpoint via nginx (port 80)
+          # Test health endpoint via nginx (port 8080)
           echo "🔍 Testing health endpoint..."
-          if docker exec whorang-test-standalone curl -f http://localhost:80/api/health; then
+          if docker exec whorang-test-standalone curl -f http://localhost:8080/health; then
             echo "✅ Health check passed (standalone mode)"
           else
             echo "❌ Health check failed (standalone mode)"
@@ -176,7 +176,7 @@ jobs:
           
           # Test database connection
           echo "🔍 Testing database connection..."
-          if docker exec whorang-test-standalone curl -f http://localhost:80/api/stats; then
+          if docker exec whorang-test-standalone curl -f http://localhost:8080/api/stats; then
             echo "✅ Database connection working"
           else
             echo "❌ Database connection failed"
@@ -197,7 +197,7 @@ jobs:
               echo "  Attempt $attempt/$max_attempts..."
               
               # Test HTTP status and content in one go
-              if docker exec whorang-test-standalone curl -f -s http://localhost:80/ | grep -q "WhoRang"; then
+              if docker exec whorang-test-standalone curl -f -s http://localhost:8080/ | grep -q "WhoRang"; then
                 echo "✅ Web interface working - contains WhoRang text!"
                 return 0
               fi
@@ -219,7 +219,7 @@ jobs:
           else
             echo "❌ Web interface test failed after $max_attempts attempts"
             echo "📋 Response details:"
-            docker exec whorang-test-standalone curl -v http://localhost:80/ || true
+            docker exec whorang-test-standalone curl -v http://localhost:8080/ || true
             echo "📋 Container logs:"
             docker logs whorang-test-standalone
             exit 1
@@ -232,7 +232,7 @@ jobs:
           # Test 2: Home Assistant add-on mode simulation
           echo "🏠 Testing Home Assistant add-on mode simulation..."
           docker run -d --name whorang-test-addon \
-            -p 8081:80 \
+            -p 8081:8080 \
             -e HASSIO_TOKEN=dummy-token \
             -e HASSIO_ADDON=http://127.0.0.1 \
             -e WHORANG_ADDON_MODE=true \
