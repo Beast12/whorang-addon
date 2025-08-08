@@ -3,10 +3,10 @@ const express = require('express');
 
 function createStatsRouter(dependencies) {
   const router = express.Router();
-  const { databaseManager, getConnectedClients } = dependencies;
+  const { getDatabase, getConnectedClients } = dependencies;
 
   router.get('/', (req, res) => {
-    const db = databaseManager.getDatabase();
+    const db = getDatabase();
     if (!db) {
       return res.status(503).json({ error: 'Database not available' });
     }

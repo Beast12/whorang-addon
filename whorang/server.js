@@ -10,7 +10,7 @@ const pathValidator = require('./utils/pathValidator');
 const directoryManager = require('./utils/directoryManager');
 // Import handlers and routers
 const { initializeWebSocket, broadcast, getConnectedClients } = require('./websocket/handler');
-const { databaseManager, initializeDatabase, closeDatabase } = require('./utils/databaseManager');
+const { databaseManager, initializeDatabase, closeDatabase, getDatabase } = require('./utils/databaseManager');
 const createWebhookRouter = require('./routes/webhook');
 const createConfigRouter = require('./routes/config');
 const createAnalysisRouter = require('./routes/analysis');
@@ -189,6 +189,7 @@ app.use(express.json());
 // Centralized dependencies for injection
 const dependencies = {
   databaseManager,
+  getDatabase,
   configManager: configReader,
   directoryManager,
   broadcast,
