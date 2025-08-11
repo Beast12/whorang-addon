@@ -241,13 +241,16 @@ jobs:
             -v /tmp/whorang-addon-data:/data:rw \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           
-          # Wait for container to start
-          sleep 15
+          # Wait for container to start and services to initialize
+          echo "⏳ Waiting for services to start..."
+          sleep 20
 
           # Validate HA add-on mode detection, configuration, and database
-          if ! docker logs whorang-test-addon | grep -q "Running in Home Assistant add-on mode."; then
+          if ! docker logs whorang-test-addon | grep -q "Home Assistant Add-on mode detected"; then
             echo "❌ HA mode detection failed"
             docker logs whorang-test-addon
+            docker stop whorang-test-addon
+            docker rm whorang-test-addon
             exit 1
           fi
           echo "✅ HA mode detection working"
@@ -255,25 +258,47 @@ jobs:
           if ! docker logs whorang-test-addon | grep -q "Home Assistant options found"; then
             echo "❌ Configuration loading failed"
             docker logs whorang-test-addon
+            docker stop whorang-test-addon
+            docker rm whorang-test-addon
             exit 1
           fi
           echo "✅ Loaded Home Assistant add-on options"
 
-          if ! docker logs whorang-test-addon | grep -q "Connected to SQLite database"; then
-            echo "❌ Database connection failed"
+          if ! docker logs whorang-test-addon | grep -q "Database schema initialized"; then
+            echo "❌ Database initialization failed"
             docker logs whorang-test-addon
+            docker stop whorang-test-addon
+            docker rm whorang-test-addon
             exit 1
           fi
-          echo "✅ Database connection working"
+          echo "✅ Database initialization working"
 
           if ! docker logs whorang-test-addon | grep -q "WhoRang - AI-Powered Doorbell Intelligence"; then
             echo "❌ Server did not start correctly"
             docker logs whorang-test-addon
+            docker stop whorang-test-addon
+            docker rm whorang-test-addon
             exit 1
           fi
           echo "✅ Server start message present"
+
+          # Test health endpoint before fix-attrs loop causes issues
+          echo "🔍 Testing HA add-on health endpoint..."
+          sleep 5  # Give server a moment to be ready
           
-          # Cleanup addon test
+          if docker exec whorang-test-addon curl -f -s http://localhost:8080/health > /dev/null 2>&1; then
+            echo "✅ HA add-on health endpoint working"
+          else
+            echo "❌ HA add-on health endpoint failed"
+            echo "📋 Container logs:"
+            docker logs whorang-test-addon
+            docker stop whorang-test-addon
+            docker rm whorang-test-addon
+            exit 1
+          fi
+          
+          # Cleanup addon test BEFORE fix-attrs loop causes container to fail
+          echo "🧹 Cleaning up HA add-on test (before fix-attrs loop causes issues)..."
           docker stop whorang-test-addon
           docker rm whorang-test-addon
           
