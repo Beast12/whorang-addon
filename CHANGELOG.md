@@ -5,6 +5,19 @@ All notable changes to the WhoRang AI Doorbell Add-on will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.35] - 2025-08-11
+
+### Fixed
+- **CRITICAL SECURITY**: Fixed dangerous recursive `chown` operation on `/config` directory in init script that violated Home Assistant security model
+- **CRITICAL SECURITY**: Eliminated world-writable (777) permissions on nginx temp directories, replaced with proper ownership and secure permissions (755)
+- **Container Startup**: Resolved permission-related container startup failures by ensuring addon only modifies its allocated `/data` directory
+- **Security Compliance**: Addon now fully complies with Home Assistant security boundaries and best practices
+
+### Security
+- **Breaking Change Prevention**: All security fixes implemented without breaking existing functionality
+- **Permission Model**: Addon now operates strictly within its allocated `/data` space, never touching system directories
+- **Access Control**: Proper user/group ownership established for all addon-managed resources
+
 ## [2.0.34] - 2025-08-11
 
 ### Fixed

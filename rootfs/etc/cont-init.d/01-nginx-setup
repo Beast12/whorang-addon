@@ -2,5 +2,7 @@
 # ==============================================================================
 # Creates NGINX temporary folders
 # ==============================================================================
+# SECURITY FIX: Use proper permissions instead of world-writable 777
 mkdir -p /tmp/nginx/client-body
-chmod 777 /tmp/nginx/client-body
+chown whorun:whorun /tmp/nginx/client-body
+chmod 755 /tmp/nginx/client-body

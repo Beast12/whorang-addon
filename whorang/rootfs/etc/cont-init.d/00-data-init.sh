@@ -5,9 +5,15 @@
 
 echo "Initializing data directories..."
 
-mkdir -p /data/uploads /data/db /config
+# Create addon's data directories (ONLY modify /data - never touch /config)
+mkdir -p /data/uploads /data/db
 
-# Ensure the 'whorun' user owns the data and config directories
-chown -R whorun:whorun /data /config
+# SECURITY FIX: Only chown /data directory (addon's allocated space)
+# NEVER attempt to chown /config - this violates Home Assistant security model
+chown -R whorun:whorun /data
+
+# Set proper permissions for addon data directories
+chmod 755 /data
+chmod 755 /data/uploads /data/db
 
 echo "Data directories initialized successfully."

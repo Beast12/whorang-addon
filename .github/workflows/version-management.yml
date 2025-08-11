@@ -1,13 +1,8 @@
 ---
 name: Version Management and Auto-Tagging
 
+# FIXED: Only trigger on manual dispatch - eliminates circular dependencies
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'whorang/**'
-      - '.github/workflows/**'
   workflow_dispatch:
     inputs:
       version_type:
@@ -19,70 +14,19 @@ on:
           - patch
           - minor
           - major
+      create_tag:
+        description: 'Create tag after version update'
+        required: true
+        default: true
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  detect-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      should_version: ${{ steps.changes.outputs.should_version }}
-      version_type: ${{ steps.changes.outputs.version_type }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect version increment type
-        id: changes
-        run: |
-          # Get the latest tag
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v2.0.33")
-          echo "Latest tag: $LATEST_TAG"
-          
-          # Get commits since last tag
-          COMMITS_SINCE_TAG=$(git rev-list ${LATEST_TAG}..HEAD --count)
-          echo "Commits since tag: $COMMITS_SINCE_TAG"
-          
-          if [ "$COMMITS_SINCE_TAG" -eq 0 ]; then
-            echo "No new commits since last tag"
-            echo "should_version=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # Analyze commit messages to determine version type
-          COMMIT_MESSAGES=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%s" || git log --pretty=format:"%s" -n 5)
-          
-          # Default to patch
-          VERSION_TYPE="patch"
-          
-          # Check for breaking changes or major features
-          if echo "$COMMIT_MESSAGES" | grep -iE "(BREAKING|breaking change|major:|!:)" > /dev/null; then
-            VERSION_TYPE="major"
-          # Check for new features
-          elif echo "$COMMIT_MESSAGES" | grep -iE "(feat:|feature:|add:|new:)" > /dev/null; then
-            VERSION_TYPE="minor"
-          # Check for fixes, updates, improvements
-          elif echo "$COMMIT_MESSAGES" | grep -iE "(fix:|bug:|patch:|update:|improve:)" > /dev/null; then
-            VERSION_TYPE="patch"
-          fi
-          
-          # Override with manual input if workflow_dispatch
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION_TYPE="${{ github.event.inputs.version_type }}"
-          fi
-          
-          echo "Detected version type: $VERSION_TYPE"
-          echo "should_version=true" >> $GITHUB_OUTPUT
-          echo "version_type=$VERSION_TYPE" >> $GITHUB_OUTPUT
-
   update-version:
     runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.should_version == 'true'
     outputs:
       new_version: ${{ steps.version.outputs.new_version }}
       version_tag: ${{ steps.version.outputs.version_tag }}
@@ -109,8 +53,8 @@ jobs:
           CLEAN_VERSION=${CURRENT_VERSION#v}
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CLEAN_VERSION"
           
-          # Increment based on type
-          case "${{ needs.detect-changes.outputs.version_type }}" in
+          # FIXED: Use workflow input instead of complex detection
+          case "${{ github.event.inputs.version_type }}" in
             major)
               MAJOR=$((MAJOR + 1))
               MINOR=0
@@ -125,6 +69,7 @@ jobs:
               ;;
           esac
           
+          # Create new version
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
           VERSION_TAG="v$NEW_VERSION"
           
@@ -134,97 +79,35 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "version_tag=$VERSION_TAG" >> $GITHUB_OUTPUT
 
-      - name: Update version in config files
+      - name: Update version in all config files
         run: |
           NEW_VERSION="${{ steps.version.outputs.new_version }}"
           
           # Update whorang/config.yaml
           sed -i "s/^version: .*/version: \"$NEW_VERSION\"/" whorang/config.yaml
           
-          # Verify the change
-          echo "Updated config.yaml:"
+          # Update whorang/package.json
+          sed -i "s/\"version\": \".*\"/\"version\": \"$NEW_VERSION\"/" whorang/package.json
+          
+          # Update custom_components/whorang/manifest.json
+          sed -i "s/\"version\": \".*\"/\"version\": \"$NEW_VERSION\"/" custom_components/whorang/manifest.json
+          
+          # Verify the changes
+          echo "Updated versions:"
           grep "^version:" whorang/config.yaml
+          grep "\"version\":" whorang/package.json
+          grep "\"version\":" custom_components/whorang/manifest.json
 
       - name: Commit version update
         run: |
-          git add whorang/config.yaml
+          git add whorang/config.yaml whorang/package.json custom_components/whorang/manifest.json
           git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
           git push origin main
 
-  wait-for-build:
-    runs-on: ubuntu-latest
-    needs: [detect-changes, update-version]
-    if: needs.detect-changes.outputs.should_version == 'true'
-    steps:
-      - name: Wait for build workflow
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const sha = context.sha;
-            
-            // Wait for the build workflow to start and complete
-            let buildWorkflowRun = null;
-            let attempts = 0;
-            const maxAttempts = 60; // 10 minutes max wait
-            
-            while (attempts < maxAttempts) {
-              const runs = await github.rest.actions.listWorkflowRunsForRepo({
-                owner,
-                repo,
-                status: 'in_progress',
-                event: 'push',
-                branch: 'main'
-              });
-              
-              // Look for build workflow that started after our commit
-              buildWorkflowRun = runs.data.workflow_runs.find(run => 
-                run.name === 'Build and Publish Home Assistant Add-on' && 
-                run.head_sha === sha
-              );
-              
-              if (buildWorkflowRun) {
-                console.log(`Found build workflow: ${buildWorkflowRun.id}`);
-                break;
-              }
-              
-              await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
-              attempts++;
-            }
-            
-            if (!buildWorkflowRun) {
-              throw new Error('Build workflow not found or did not start');
-            }
-            
-            // Wait for build to complete
-            attempts = 0;
-            while (attempts < maxAttempts) {
-              const run = await github.rest.actions.getWorkflowRun({
-                owner,
-                repo,
-                run_id: buildWorkflowRun.id
-              });
-              
-              if (run.data.status === 'completed') {
-                if (run.data.conclusion === 'success') {
-                  console.log('Build workflow completed successfully');
-                  return;
-                } else {
-                  throw new Error(`Build workflow failed with conclusion: ${run.data.conclusion}`);
-                }
-              }
-              
-              console.log(`Build workflow status: ${run.data.status}`);
-              await new Promise(resolve => setTimeout(resolve, 30000)); // Wait 30 seconds
-              attempts++;
-            }
-            
-            throw new Error('Build workflow did not complete within timeout');
-
   create-tag:
     runs-on: ubuntu-latest
-    needs: [detect-changes, update-version, wait-for-build]
-    if: needs.detect-changes.outputs.should_version == 'true'
+    needs: update-version
+    if: github.event.inputs.create_tag == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -232,7 +115,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create and push tag
+      - name: Pull latest changes and create tag
         run: |
           VERSION_TAG="${{ needs.update-version.outputs.version_tag }}"
           NEW_VERSION="${{ needs.update-version.outputs.new_version }}"
@@ -243,17 +126,21 @@ jobs:
           # Create annotated tag
           git tag -a "$VERSION_TAG" -m "Release $VERSION_TAG
 
-          Auto-generated release after successful build.
+          🚀 WhoRang AI Doorbell $VERSION_TAG
           
-          Changes since last release:
-          $(git log $(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo 'HEAD~10')..HEAD --pretty=format:'- %s' | head -20)
+          This release includes:
+          - Security fixes and improvements
+          - Enhanced Home Assistant integration
+          - Multi-provider AI analysis support
+          - Advanced face recognition capabilities
           
-          Build completed successfully on $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          Auto-generated release on $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           
-          # Push tag
+          # Push tag (this will trigger docker-build.yml)
           git push origin "$VERSION_TAG"
           
           echo "✅ Created and pushed tag: $VERSION_TAG"
+          echo "🐳 Docker build will be triggered automatically"
 
       - name: Create GitHub Release
         uses: actions/github-script@v7
