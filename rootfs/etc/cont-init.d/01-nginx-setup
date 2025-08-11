@@ -1,25 +1,36 @@
-#!/usr/bin/with-contenv bashio
+#!/usr/bin/with-contenv bash
 # ==============================================================================
 # Home Assistant Add-on: WhoRang - Nginx Setup
 # ==============================================================================
 
-bashio::log.info "Setting up nginx for WhoRang addon..."
+# FIXED: Detect environment and use appropriate logging method
+if command -v bashio >/dev/null 2>&1 && [ -n "${SUPERVISOR_TOKEN:-}" ]; then
+    # Home Assistant addon mode - use bashio
+    LOG_FUNC="bashio::log.info"
+    ERROR_FUNC="bashio::log.error"
+else
+    # Standalone/test mode - use echo fallback
+    LOG_FUNC="echo [INFO]"
+    ERROR_FUNC="echo [ERROR]"
+fi
+
+$LOG_FUNC "Setting up nginx for WhoRang addon..."
 
 # FIXED: Nginx temp directories already created in Dockerfile with proper ownership
 # No chown operations needed - directories created with correct permissions in build
 
 # Test nginx configuration before starting
 if nginx -t -c /etc/nginx/nginx.conf; then
-    bashio::log.info "Nginx configuration is valid"
+    $LOG_FUNC "Nginx configuration is valid"
 else
-    bashio::log.error "Nginx configuration test failed!"
+    $ERROR_FUNC "Nginx configuration test failed!"
     exit 1
 fi
 
 # Ensure nginx directories exist (created in Dockerfile but verify)
 if [[ ! -d "/tmp/nginx-client-body" ]]; then
-    bashio::log.error "Nginx temp directories not found! Check Dockerfile setup."
+    $ERROR_FUNC "Nginx temp directories not found! Check Dockerfile setup."
     exit 1
 fi
 
-bashio::log.info "Nginx setup completed successfully"
+$LOG_FUNC "Nginx setup completed successfully"

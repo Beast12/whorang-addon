@@ -1,9 +1,16 @@
-#!/usr/bin/with-contenv bashio
+#!/usr/bin/with-contenv bash
 # ==============================================================================
 # Home Assistant Add-on: WhoRang - Node.js Service
 # ==============================================================================
 
-bashio::log.info "Starting WhoRang backend service..."
+# FIXED: Detect environment and use appropriate logging method
+if command -v bashio >/dev/null 2>&1 && [ -n "${SUPERVISOR_TOKEN:-}" ]; then
+    LOG_FUNC="bashio::log.info"
+else
+    LOG_FUNC="echo [INFO]"
+fi
+
+$LOG_FUNC "Starting WhoRang backend service..."
 
 # Change to the app directory
 cd /app || exit 1

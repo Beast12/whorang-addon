@@ -1,9 +1,16 @@
-#!/usr/bin/with-contenv bashio
+#!/usr/bin/with-contenv bash
 # ==============================================================================
 # Home Assistant Add-on: WhoRang - Nginx Service
 # ==============================================================================
 
-bashio::log.info "Starting Nginx service..."
+# FIXED: Detect environment and use appropriate logging method
+if command -v bashio >/dev/null 2>&1 && [ -n "${SUPERVISOR_TOKEN:-}" ]; then
+    LOG_FUNC="bashio::log.info"
+else
+    LOG_FUNC="echo [INFO]"
+fi
+
+$LOG_FUNC "Starting Nginx service..."
 
 # FIXED: Run nginx as the correct user (abc) with proper configuration
 exec s6-setuidgid abc nginx -g "daemon off;"
