@@ -1,34 +1,13 @@
-#!/command/with-contenv bash
+#!/usr/bin/with-contenv bashio
 # ==============================================================================
 # Home Assistant Add-on: WhoRang - Node.js Service
 # ==============================================================================
 
-echo "Starting WhoRang backend..."
+bashio::log.info "Starting WhoRang backend service..."
 
 # Change to the app directory
 cd /app || exit 1
 
-echo "--- DEBUGGING STARTUP ---"
-
-# Check Node.js version
-echo "Node version:"
-s6-setuidgid whorun node -v
-
-# Check for native module and its permissions
-echo "
-Listing native module directory..."
-ls -l /app/node_modules/better-sqlite3/build/Release/
-
-# Attempt to load the module directly to catch errors
-echo "
-Attempting to load better-sqlite3 directly..."
-s6-setuidgid whorun node -e "try { require('better-sqlite3'); console.log('✅ better-sqlite3 loaded successfully.'); } catch (e) { console.error('❌ FAILED to load better-sqlite3:', e); process.exit(1); }"
-
-# If the above check fails, the script will exit and the container will stop, providing a clear error.
-echo "--- DEBUGGING END ---
-"
-
-# Execute the Node.js server as the 'whorun' user.
-# The user is created in the Dockerfile, and all environment variables
-# are passed by s6-overlay from the cont-init scripts.
-exec s6-setuidgid whorun node server.js
+# FIXED: Use standard HA addon user (abc) instead of whorun
+# Execute the Node.js server with proper user and environment
+exec s6-setuidgid abc node server.js

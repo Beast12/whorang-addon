@@ -1,9 +1,9 @@
-#!/command/with-contenv bash
+#!/usr/bin/with-contenv bashio
 # ==============================================================================
 # Home Assistant Add-on: WhoRang - Nginx Service
 # ==============================================================================
 
-echo "Starting Nginx..."
+bashio::log.info "Starting Nginx service..."
 
-# Start nginx in the foreground
-exec nginx -g "daemon off;"
+# FIXED: Run nginx as the correct user (abc) with proper configuration
+exec s6-setuidgid abc nginx -g "daemon off;"

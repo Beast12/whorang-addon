@@ -5,6 +5,35 @@ All notable changes to the WhoRang AI Doorbell Add-on will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.36] - 2025-08-11
+
+### Fixed
+- **CRITICAL ADDON CRASH**: Completely overhauled addon to comply with Home Assistant security model and eliminate all permission-related crashes
+- **Container User Model**: Replaced custom `whorun` user with standard HA addon `abc:abc` user/group (UID/GID 911) following official best practices
+- **Permission Violations**: Removed ALL `chown` and `chmod` operations from init scripts that were causing "Operation not permitted" errors
+- **Nginx Startup Failures**: Fixed nginx temp directory creation and ownership to work within HA container restrictions
+- **Fix-Attrs Service**: Removed problematic `fix-attrs` service that was causing infinite permission loops and container exit code 1 failures
+- **Init Script Compliance**: Rewrote all init scripts to use `bashio` for configuration access instead of manual JSON parsing
+- **S6 Service Definitions**: Updated all service definitions to use proper user context and bashio logging
+
+### Changed
+- **Dockerfile Architecture**: Completely restructured to create all directories with correct permissions at build time, eliminating runtime permission changes
+- **Configuration Access**: Implemented proper `bashio::config` usage for all addon configuration instead of direct `/data/options.json` access
+- **Service Management**: All services now run with `s6-setuidgid abc` for proper user context within HA containers
+- **Nginx Configuration**: Updated to use `abc` user and proper temp directory paths that work within HA security restrictions
+- **Environment Variables**: Proper export of configuration variables for Node.js application access
+
+### Security
+- **Home Assistant Compliance**: Addon now fully complies with HA addon security model and protection mode requirements
+- **Container Restrictions**: All operations respect HA container security boundaries and never attempt to modify system directories
+- **User Context**: Proper user/group management following HA addon development guidelines
+- **Permission Model**: No more dangerous permission operations that could compromise system security
+
+### Technical
+- **S6 Overlay**: Proper S6 environment variables and service lifecycle management
+- **Bashio Integration**: Full integration with Home Assistant's bashio library for logging and configuration
+- **Container Architecture**: Follows official HA addon patterns studied from successful community addons (Node-RED, Nginx Proxy Manager)
+
 ## [2.0.35] - 2025-08-11
 
 ### Fixed
