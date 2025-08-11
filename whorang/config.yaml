@@ -1,6 +1,6 @@
 name: "WhoRang AI Doorbell"
 description: "Complete AI-powered doorbell solution with face recognition, multi-provider AI analysis, and Home Assistant integration"
-version: "2.0.33"
+version: "2.0.34"
 slug: "whorang"
 init: false
 arch:

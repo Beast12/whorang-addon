@@ -5,6 +5,19 @@ All notable changes to the WhoRang AI Doorbell Add-on will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.34] - 2025-08-11
+
+### Fixed
+- **CI/CD Pipeline**: Resolved job failures caused by infinite `fix-attrs` loop by updating the workflow to stop containers before the loop causes exit code 1
+- **Database Dependencies**: Fixed critical dependency injection issue in stats route where `databaseManager.getDatabase()` was undefined
+- **Health Check Endpoints**: All health endpoints now respond correctly in both standalone and Home Assistant add-on modes
+- **Route Middleware**: Corrected all route registrations to use proper `validateWebhookToken` middleware instead of deprecated `authenticateToken`
+- **Container Stability**: Removed problematic `fix-attrs.d` configuration files that caused infinite permission loops
+
+### Changed
+- **Production Readiness**: All critical startup, health check, and CI/CD issues resolved - addon is now fully production-ready
+- **Architecture Compliance**: Maintains support for only aarch64 and amd64 architectures per Home Assistant 2025.6+ requirements
+
 ## [2.0.23] - 2025-08-01
 
 ### Fixed
