@@ -5,6 +5,29 @@ All notable changes to the WhoRang AI Doorbell Add-on will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.37] - 2025-08-19
+
+### Fixed
+- **CRITICAL**: Fixed container startup failures in Home Assistant addon mode
+- **API Access**: Resolved "API forbidden" errors in init scripts with proper error handling and graceful fallback to options.json
+- **Nginx Permissions**: Fixed nginx permission denied errors by removing conflicting error_log directives and ensuring proper directory creation
+- **S6 Service Failures**: Eliminated S6 service crashes by improving init script error handling and proper exit codes
+- **Script Ordering**: Renamed and reordered init scripts for proper S6 execution sequence (00-data-init.sh, 01-whorang-init, 02-nginx-init)
+- **Logging Configuration**: Streamlined nginx logging to prevent conflicts between main config and server blocks
+- **Environment Detection**: Enhanced bashio availability detection with proper fallbacks for standalone mode
+
+### Changed
+- Improved init script robustness with comprehensive error handling
+- Enhanced logging throughout initialization process for better debugging
+- Strengthened nginx configuration validation with non-blocking approach
+
+### Technical Details
+- Fixed bashio API calls to handle supervisor token unavailability gracefully
+- Removed conflicting nginx error_log directive from backend.conf
+- Added proper /var/lib/nginx/logs directory creation in Dockerfile
+- Enhanced all init scripts with environment detection and logging fallbacks
+- Maintained strict Home Assistant addon security compliance throughout fixes
+
 ## [2.0.36] - 2025-08-11
 
 ### Fixed

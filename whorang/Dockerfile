@@ -54,7 +54,7 @@ COPY . .
 # FIXED: Create directories with proper ownership from start (no chown in init scripts)
 # Create nginx temp directories that are writable in HA containers
 RUN mkdir -p /tmp/nginx-client-body /tmp/nginx-proxy /tmp/nginx-fastcgi /tmp/nginx-uwsgi /tmp/nginx-scgi && \
-    mkdir -p /var/log/nginx /var/lib/nginx && \
+    mkdir -p /var/log/nginx /var/lib/nginx /var/lib/nginx/logs && \
     mkdir -p /etc/nginx/conf.d && \
     cp /app/nginx.conf /etc/nginx/nginx.conf && \
     cp /app/backend.conf /etc/nginx/conf.d/default.conf && \

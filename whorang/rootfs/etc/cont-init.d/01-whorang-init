@@ -60,19 +60,26 @@ if [ "${WHORANG_ADDON_MODE}" = "true" ]; then
 
     for key in "${CONFIG_KEYS[@]}"; do
         value=""
-        # First, try to get config from bashio if it's available
+        # FIXED: Try bashio first, but handle API errors gracefully
         if [ "${BASHIO_IS_AVAILABLE}" = "true" ]; then
-            value=$(bashio::config "$key")
+            # Try bashio config with error handling
+            if value=$(bashio::config "$key" 2>/dev/null) && [ -n "$value" ] && [ "$value" != "null" ]; then
+                # Successfully got value from bashio
+                :
+            else
+                # Bashio failed or returned null, fall back to options.json
+                value=""
+            fi
         fi
 
-        # If bashio returns an empty string or the literal string "null", fall back to options.json
-        if { [[ -z "$value" ]] || [[ "$value" == "null" ]]; } && [[ -f "/data/options.json" ]]; then
-            log_info "Falling back to /data/options.json for '$key'"
-            jq_value=$(jq -r ".${key}" /data/options.json)
+        # If bashio failed or unavailable, use options.json
+        if [[ -z "$value" ]] && [[ -f "/data/options.json" ]]; then
+            log_info "Using /data/options.json for '$key'"
+            jq_value=$(jq -r ".${key}" /data/options.json 2>/dev/null || echo "null")
             if [[ "$jq_value" != "null" ]]; then
                 # Handle array for cors_origins, which needs special parsing
                 if [[ "$key" == "cors_origins" ]]; then
-                    value=$(jq -r '.cors_origins[]' /data/options.json | paste -sd ',' -)
+                    value=$(jq -r '.cors_origins[]' /data/options.json 2>/dev/null | paste -sd ',' - || echo "")
                 else
                     value="$jq_value"
                 fi
@@ -83,6 +90,7 @@ if [ "${WHORANG_ADDON_MODE}" = "true" ]; then
         VAR_NAME=$(echo "$key" | tr '[:lower:]' '[:upper:]')
         export "${VAR_NAME}=${value}"
         printf "%s" "$value" > "/var/run/s6/container_environment/$VAR_NAME"
+        log_info "Set $VAR_NAME='$value'"
     done
 else
     log_info "Loading configuration from environment variables (standalone mode)..."

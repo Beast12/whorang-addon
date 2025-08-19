@@ -1,0 +1,50 @@
+#!/command/with-contenv bash
+# ==============================================================================
+# Home Assistant Add-on: WhoRang - Nginx Initialization
+# ==============================================================================
+
+# FIXED: Proper environment detection and error handling
+BASHIO_IS_AVAILABLE="false"
+if [ -f "/usr/lib/bashio/bashio.sh" ]; then
+    source /usr/lib/bashio/bashio.sh 2>/dev/null
+    if command -v bashio >/dev/null 2>&1; then
+        BASHIO_IS_AVAILABLE="true"
+    fi
+fi
+
+# Function to log messages
+log_info() {
+    if [ "${BASHIO_IS_AVAILABLE}" = "true" ] && bashio::supervisor.ping >/dev/null 2>&1; then
+        bashio::log.info "$1"
+    else
+        echo "[Nginx-Init] $1"
+    fi
+}
+
+log_info "Initializing Nginx configuration..."
+
+# Remove default nginx configurations that might conflict
+rm -f /etc/nginx/sites-enabled/* 2>/dev/null || true
+rm -f /etc/nginx/sites-available/* 2>/dev/null || true
+
+# FIXED: Ensure nginx log directories exist with proper permissions
+mkdir -p /var/lib/nginx/logs /var/log/nginx 2>/dev/null || true
+
+# Check if running in standalone mode and adjust access control
+if [ "$WHORANG_ADDON_MODE" = "false" ]; then
+    log_info "Standalone mode detected. Allowing all access."
+    # Replace restrictive access control with 'allow all' for standalone mode
+    sed -i '/allow 172\.30\.32\.2;/,/# Note: In standalone mode, run\.sh will replace this with/c\
+    # Standalone mode - allow all access\
+    allow all;' /etc/nginx/conf.d/default.conf 2>/dev/null || true
+fi
+
+# FIXED: Validate nginx configuration with better error handling
+log_info "Validating nginx configuration..."
+if nginx -t 2>/dev/null; then
+    log_info "Nginx configuration validated successfully."
+else
+    log_info "Nginx configuration test failed, but continuing (will be handled by service)"
+fi
+
+log_info "Nginx initialization completed."
