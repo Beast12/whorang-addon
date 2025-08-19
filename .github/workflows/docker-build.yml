@@ -137,8 +137,18 @@ jobs:
         run: |
           echo "🧪 Testing Home Assistant Add-on..."
 
-          # Pull the latest image
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          # Resolve image tag from current ref (tag build). Prefer v-prefixed, fallback to plain semver.
+          VERSION_TAG=${GITHUB_REF#refs/tags/}
+          PLAIN_TAG=${VERSION_TAG#v}
+          MAIN_IMG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION_TAG}"
+          echo "Using image: ${MAIN_IMG} (fallback: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${PLAIN_TAG})"
+
+          # Pull the tagged image (vX.Y.Z), fallback to X.Y.Z
+          if ! docker pull "${MAIN_IMG}"; then
+            echo "Primary tag not found, trying plain semver..."
+            MAIN_IMG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${PLAIN_TAG}"
+            docker pull "${MAIN_IMG}"
+          fi
 
           # Prepare writable data directories
           mkdir -p /tmp/whorang-standalone-data /tmp/whorang-addon-data
@@ -157,7 +167,7 @@ jobs:
             -e WHORANG_ADDON_MODE=false \
             -e AI_PROVIDER=local \
             -e LOG_LEVEL=info \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            "${MAIN_IMG}"
           
           # Wait for container to start and services to be ready
           echo "⏳ Waiting for services to start..."
@@ -239,7 +249,7 @@ jobs:
             -e AI_PROVIDER=local \
             -e LOG_LEVEL=info \
             -v /tmp/whorang-addon-data:/data:rw \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            "${MAIN_IMG}"
           
           # Wait for container to start and services to initialize
           echo "⏳ Waiting for services to start..."
@@ -320,7 +330,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
           format: 'sarif'
           output: 'trivy-results.sarif'
 
