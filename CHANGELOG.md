@@ -5,6 +5,16 @@ All notable changes to the WhoRang AI Doorbell Add-on will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.38] - 2025-08-19
+
+### Fixed
+- Standalone test-image failure: hardened `02-nginx-init` to be non-fatal during cont-init
+- Ensured `02-nginx-init` is executable (100755) so s6 runs it correctly
+- Local mode detection inside nginx init to avoid env propagation issues
+
+### Changed
+- Safer nginx config validation in init (logs result; services validate again on start)
+
 ## [2.0.37] - 2025-08-19
 
 ### Fixed
