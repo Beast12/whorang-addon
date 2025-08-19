@@ -1,4 +1,6 @@
 #!/command/with-contenv bash
+# Explicitly disable errexit in case with-contenv enables it
+set +e
 # ==============================================================================
 # Home Assistant Add-on: WhoRang - Nginx Initialization
 # ==============================================================================
@@ -27,11 +29,17 @@ log_info "Initializing Nginx configuration..."
 rm -f /etc/nginx/sites-enabled/* 2>/dev/null || true
 rm -f /etc/nginx/sites-available/* 2>/dev/null || true
 
+# Determine run mode locally (HA add-on vs Standalone) to avoid depending on env propagation between cont-init scripts
+LOCAL_ADDON_MODE="false"
+if [ -f "/data/options.json" ]; then
+    LOCAL_ADDON_MODE="true"
+fi
+
 # FIXED: Ensure nginx log directories exist with proper permissions
 mkdir -p /var/lib/nginx/logs /var/log/nginx 2>/dev/null || true
 
 # Check if running in standalone mode and adjust access control
-if [ "$WHORANG_ADDON_MODE" = "false" ]; then
+if [ "$WHORANG_ADDON_MODE" = "false" ] || [ "$LOCAL_ADDON_MODE" = "false" ]; then
     log_info "Standalone mode detected. Allowing all access."
     # Replace restrictive access control with 'allow all' for standalone mode
     sed -i '/allow 172\.30\.32\.2;/,/# Note: In standalone mode, run\.sh will replace this with/c\
@@ -48,3 +56,6 @@ else
 fi
 
 log_info "Nginx initialization completed."
+
+# Never fail the container due to init adjustments; services will validate configs again
+exit 0
