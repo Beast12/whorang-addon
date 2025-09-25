@@ -1,4 +1,5 @@
 # WhoRang AI Doorbell
+# THIS WILL BE ARCHIVED. A COMPLETLY REVAMPED ONE IS ON THE WAY. HOLD YOUR 🐎. ALMOST DONE
 
 **Complete AI-powered doorbell solution with face recognition, multi-provider AI analysis, and seamless Home Assistant integration.**
 
